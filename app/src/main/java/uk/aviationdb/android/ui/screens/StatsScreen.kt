@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -19,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -36,7 +34,6 @@ import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbRankedRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
-import uk.aviationdb.android.ui.components.SimpleBarChart
 import uk.aviationdb.android.ui.components.StatTile
 import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import java.text.NumberFormat
@@ -52,20 +49,13 @@ private val defaultRanges = listOf(
     RangeOption("all", "All history"),
 )
 
-private enum class StatsSection(val title: String) {
-    Overview("Overview"),
-    Aircraft("Aircraft & operators"),
-    Airports("Airports & routes"),
-    Patterns("Patterns"),
-}
-
 private fun pctSuffix(v: Double?): String {
     if (v == null) return ""
     return if (v >= 0) " (+${"%.0f".format(v)}%)" else " (${"%.0f".format(v)}%)"
 }
 
 private fun chartLabel(row: StatsChartRow): String =
-    row.label ?: row.registration ?: row.operator ?: row.t?.take(16) ?: "?"
+    row.label ?: row.registration ?: row.operator ?: row.t?.take(12) ?: "?"
 
 private fun dowLabel(row: StatsChartRow): String {
     val raw = row.label ?: return "?"
@@ -97,11 +87,8 @@ fun StatsScreen(sessionStore: SessionStore) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var range by remember { mutableStateOf("today") }
-    var sectionTab by remember { mutableIntStateOf(0) }
-
     var summary by remember { mutableStateOf<StatsSummaryResponse?>(null) }
     var kpis by remember { mutableStateOf<StatsKpisResponse?>(null) }
-    var series by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var operators by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var types by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var aircraft by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
@@ -111,8 +98,6 @@ fun StatsScreen(sessionStore: SessionStore) {
     var hourly by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var dow by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var wake by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
-    var seriesTitle by remember { mutableStateOf<String?>(null) }
-
     val nf = remember { NumberFormat.getIntegerInstance(Locale.UK) }
 
     LaunchedEffect(sessionStore.isSignedIn(), sessionStore.hasTracking(), range) {
@@ -127,13 +112,11 @@ fun StatsScreen(sessionStore: SessionStore) {
             return@LaunchedEffect
         }
         loading = true
-        error = null
         try {
             coroutineScope {
                 val api = ApiProvider.service()
                 val s = async { api.statsSummary(range) }
                 val k = async { api.statsKpis(range) }
-                val ser = async { api.statsCharts("series", range) }
                 val op = async { api.statsCharts("operators", range) }
                 val ty = async { api.statsCharts("types", range) }
                 val ac = async { api.statsCharts("aircraft", range) }
@@ -145,9 +128,6 @@ fun StatsScreen(sessionStore: SessionStore) {
                 val wk = async { api.statsCharts("wake", range) }
                 summary = s.await()
                 kpis = k.await()
-                val seriesResp = ser.await()
-                series = seriesResp.rows.orEmpty()
-                seriesTitle = seriesResp.title
                 operators = op.await().rows.orEmpty()
                 types = ty.await().rows.orEmpty()
                 aircraft = ac.await().rows.orEmpty()
@@ -158,6 +138,7 @@ fun StatsScreen(sessionStore: SessionStore) {
                 dow = dw.await().rows.orEmpty()
                 wake = wk.await().rows.orEmpty()
             }
+            error = null
         } catch (e: Exception) {
             error = e.message ?: "Could not load stats"
         } finally {
@@ -180,8 +161,7 @@ fun StatsScreen(sessionStore: SessionStore) {
                 val s = summary!!
                 val cur = s.current
                 val ch = s.change
-                val section = StatsSection.entries[sectionTab]
-
+                val kpi = kpis
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -197,174 +177,105 @@ fun StatsScreen(sessionStore: SessionStore) {
                             }
                         }
                     }
-
                     item {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatsSection.entries.forEachIndexed { idx, sec ->
-                                FilterChip(
-                                    selected = sectionTab == idx,
-                                    onClick = { sectionTab = idx },
-                                    label = { Text(sec.title) },
-                                )
-                            }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            StatTile(
+                                "Sightings",
+                                nf.format(cur?.totalFlights ?: 0) + pctSuffix(ch?.totalFlights),
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatTile(
+                                "Aircraft",
+                                nf.format(cur?.totalAircraft ?: 0) + pctSuffix(ch?.totalAircraft),
+                                modifier = Modifier.weight(1f),
+                            )
                         }
                     }
-
-                    if (section == StatsSection.Overview) {
-                            item {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    StatTile(
-                                        "Sightings",
-                                        nf.format(cur?.totalFlights ?: 0) + pctSuffix(ch?.totalFlights),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    StatTile(
-                                        "Aircraft",
-                                        nf.format(cur?.totalAircraft ?: 0) + pctSuffix(ch?.totalAircraft),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                            item {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                    StatTile(
-                                        "Callsigns",
-                                        nf.format(cur?.totalCallsigns ?: 0) + pctSuffix(ch?.totalCallsigns),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    StatTile(
-                                        "New to you",
-                                        nf.format(cur?.newAircraft ?: 0),
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                }
-                            }
-                            val kpiBlock = kpis
-                            if (kpiBlock != null) {
-                                item {
-                                    AdbCard {
-                                        Text("Activity in range", style = MaterialTheme.typography.titleMedium)
-                                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                                        AdbDetailRow("Avg per active day", "${kpiBlock.avgPerDay ?: 0}")
-                                        AdbDetailRow("Avg per hour", "${kpiBlock.avgPerHour ?: 0}")
-                                        AdbDetailRow(
-                                            "With full route",
-                                            "${kpiBlock.withRoute ?: 0} (${kpiBlock.routePct ?: 0}%)",
-                                        )
-                                        AdbDetailRow("Unique airports", nf.format(kpiBlock.uniqueAirports ?: 0))
-                                        AdbDetailRow(
-                                            "One-time visitors",
-                                            nf.format(kpiBlock.singleVisitRegistrations ?: 0),
-                                        )
-                                        val peak = kpiBlock.peakHour
-                                        if (peak != null) {
-                                            AdbDetailRow(
-                                                "Busiest hour",
-                                                "${String.format(Locale.UK, "%02d:00", peak)} · ${kpiBlock.peakHourCount ?: 0} sightings",
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            item {
-                                AdbCard {
-                                    Text("Highlights", style = MaterialTheme.typography.titleMedium)
-                                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            StatTile(
+                                "Callsigns",
+                                nf.format(cur?.totalCallsigns ?: 0) + pctSuffix(ch?.totalCallsigns),
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatTile(
+                                "New to you",
+                                nf.format(cur?.newAircraft ?: 0),
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (kpi != null) {
+                        item {
+                            AdbCard {
+                                Text("Activity in range", style = MaterialTheme.typography.titleMedium)
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                AdbDetailRow("Avg per active day", "${kpi.avgPerDay ?: 0}")
+                                AdbDetailRow("Avg per hour", "${kpi.avgPerHour ?: 0}")
+                                AdbDetailRow(
+                                    "With full route",
+                                    "${kpi.withRoute ?: 0} (${kpi.routePct ?: 0}%)",
+                                )
+                                AdbDetailRow("Unique airports", nf.format(kpi.uniqueAirports ?: 0))
+                                AdbDetailRow(
+                                    "One-time visitors",
+                                    nf.format(kpi.singleVisitRegistrations ?: 0),
+                                )
+                                kpi.peakHour?.let { peak ->
                                     AdbDetailRow(
-                                        "Busiest day",
-                                        "${cur?.busiestDay ?: "—"} (${cur?.busiestDayCount ?: 0} flights)",
-                                    )
-                                    AdbDetailRow("Current streak", "${cur?.currentStreak ?: 0} days")
-                                    AdbDetailRow("Longest streak", "${cur?.longestStreak ?: 0} days")
-                                    val op = s.leadingOperator?.operator ?: s.leadingOperator?.label
-                                    if (!op.isNullOrBlank()) {
-                                        AdbDetailRow("Top operator", "$op · ${s.leadingOperator?.c ?: 0}")
-                                    }
-                                    val ac = s.leadingAircraft?.registration ?: s.leadingAircraft?.label
-                                    if (!ac.isNullOrBlank()) {
-                                        AdbDetailRow("Top aircraft", "$ac · ${s.leadingAircraft?.c ?: 0}")
-                                    }
-                                }
-                            }
-                            item {
-                                AdbCard {
-                                    SimpleBarChart(
-                                        title = seriesTitle ?: "Sightings over time",
-                                        rows = series,
-                                        maxBars = 40,
-                                        labelTransform = { it.t?.take(10) ?: chartLabel(it) },
+                                        "Busiest hour",
+                                        "${String.format(Locale.UK, "%02d:00", peak)} · ${kpi.peakHourCount ?: 0} sightings",
                                     )
                                 }
                             }
+                        }
                     }
-
-                    if (section == StatsSection.Aircraft) {
-                        statsRankedCard("Top operators", operators)
-                        statsRankedCard("Aircraft types", types)
-                        statsRankedCard("Top registrations", aircraft)
-                        statsRankedCard("Top callsigns", callsigns)
-                        item {
-                            AdbCard {
-                                SimpleBarChart(
-                                    title = "Wake turbulence mix",
-                                    rows = wake,
-                                    maxBars = 8,
-                                    labelTransform = { wakeLabel(it.label) },
-                                )
+                    item {
+                        AdbCard {
+                            Text("Highlights", style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            AdbDetailRow(
+                                "Busiest day",
+                                "${cur?.busiestDay ?: "—"} (${cur?.busiestDayCount ?: 0} flights)",
+                            )
+                            AdbDetailRow("Current streak", "${cur?.currentStreak ?: 0} days")
+                            AdbDetailRow("Longest streak", "${cur?.longestStreak ?: 0} days")
+                            val op = s.leadingOperator?.operator ?: s.leadingOperator?.label
+                            if (!op.isNullOrBlank()) {
+                                AdbDetailRow("Top operator", "$op · ${s.leadingOperator?.c ?: 0}")
+                            }
+                            val ac = s.leadingAircraft?.registration ?: s.leadingAircraft?.label
+                            if (!ac.isNullOrBlank()) {
+                                AdbDetailRow("Top aircraft", "$ac · ${s.leadingAircraft?.c ?: 0}")
                             }
                         }
                     }
-
-                    if (section == StatsSection.Airports) {
-                        statsRankedCard("Busiest airports", airports)
-                        statsRankedCard("Top routes", routes)
-                    }
-
-                    if (section == StatsSection.Patterns) {
-                        item {
-                            AdbCard {
-                                SimpleBarChart(
-                                    title = "By time of day (local)",
-                                    rows = hourly,
-                                    maxBars = 24,
-                                    labelTransform = { it.label ?: "?" },
-                                )
-                            }
-                        }
-                        item {
-                            AdbCard {
-                                SimpleBarChart(
-                                    title = "By day of week",
-                                    rows = dow,
-                                    maxBars = 7,
-                                    labelTransform = { dowLabel(it) },
-                                )
-                            }
-                        }
-                        item {
-                            AdbCard {
-                                SimpleBarChart(
-                                    title = seriesTitle ?: "Activity timeline",
-                                    rows = series,
-                                    maxBars = 40,
-                                    labelTransform = { it.t?.take(10) ?: chartLabel(it) },
-                                )
-                            }
-                        }
-                    }
+                    rankedListCard("Top operators", operators)
+                    rankedListCard("Aircraft types", types)
+                    rankedListCard("Top registrations", aircraft)
+                    rankedListCard("Top callsigns", callsigns)
+                    rankedListCard("Busiest airports", airports)
+                    rankedListCard("Top routes", routes)
+                    rankedListCard("By hour (local)", hourly)
+                    rankedListCard("By day of week", dow) { dowLabel(it) }
+                    rankedListCard("Wake turbulence", wake) { wakeLabel(it.label) }
                 }
             }
         }
     }
 }
 
-private fun LazyListScope.statsRankedCard(title: String, rows: List<StatsChartRow>) {
+private fun androidx.compose.foundation.lazy.LazyListScope.rankedListCard(
+    title: String,
+    rows: List<StatsChartRow>,
+    label: (StatsChartRow) -> String = { chartLabel(it) },
+) {
     item {
         AdbCard {
             Text(title, style = MaterialTheme.typography.titleMedium)
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             rows.forEachIndexed { idx, row ->
-                AdbRankedRow(rank = idx + 1, title = chartLabel(row), count = row.c ?: 0)
+                AdbRankedRow(rank = idx + 1, title = label(row), count = row.c ?: 0)
             }
             if (rows.isEmpty()) {
                 Text("No data in this range.", style = MaterialTheme.typography.bodySmall)
