@@ -1,19 +1,21 @@
 package uk.aviationdb.android.ui.screens
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
@@ -22,22 +24,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHostController
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.api.ActiveFlight
 import uk.aviationdb.android.data.credentials.SessionStore
+import uk.aviationdb.android.tracking.FlightMotionEngine
+import uk.aviationdb.android.tracking.MediaUrls
+import uk.aviationdb.android.tracking.MotionPlane
 import uk.aviationdb.android.ui.components.AdbTopBanner
 import uk.aviationdb.android.ui.components.FlightRowCard
 import uk.aviationdb.android.ui.live.LiveMapView
-import uk.aviationdb.android.ui.live.flightKey
 import uk.aviationdb.android.ui.util.LoadState
 
 private const val POLL_MS = 10_000L
@@ -46,14 +52,28 @@ private enum class LivePane { Map, List }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LiveScreen(sessionStore: SessionStore) {
-    var state by remember { mutableStateOf<LoadState<List<ActiveFlight>>>(LoadState.Idle) }
+fun LiveScreen(
+    sessionStore: SessionStore,
+    navController: NavHostController,
+) {
+    var state by remember { mutableStateOf<LoadState<List<MotionPlane>>>(LoadState.Idle) }
     var pane by remember { mutableIntStateOf(LivePane.Map.ordinal) }
     var selectedKey by remember { mutableStateOf<String?>(null) }
+    var homeLat by remember { mutableStateOf(sessionStore.getTrackLat()) }
+    var homeLon by remember { mutableStateOf(sessionStore.getTrackLon()) }
+    var mapTick by remember { mutableLongStateOf(0L) }
+    val motion = remember { FlightMotionEngine() }
+    val scope = rememberCoroutineScope()
     val signedIn = sessionStore.isSignedIn()
     val hasTracking = sessionStore.hasTracking()
-    val homeLat = sessionStore.getTrackLat()
-    val homeLon = sessionStore.getTrackLon()
+
+    LaunchedEffect(Unit) {
+        while (isActive) {
+            motion.step()
+            mapTick = System.currentTimeMillis()
+            delay(50L)
+        }
+    }
 
     LaunchedEffect(signedIn, hasTracking) {
         if (!signedIn) {
@@ -61,20 +81,33 @@ fun LiveScreen(sessionStore: SessionStore) {
             return@LaunchedEffect
         }
         if (!hasTracking) {
-            state = LoadState.Error("Live tracking needs an active subscription. Manage plans at aviationdb.uk.")
+            state = LoadState.Error("Live tracking needs an active subscription.")
             return@LaunchedEffect
         }
         while (isActive) {
             if (state !is LoadState.Success) state = LoadState.Loading
             state = try {
                 val body = ApiProvider.service().activeFlights()
-                LoadState.Success(body.flights)
-            } catch (e: HttpException) {
-                val msg = when (e.code()) {
-                    401, 403 -> "Session expired or tracking subscription required."
-                    else -> "HTTP ${e.code()}"
+                body.trackLat?.let {
+                    homeLat = it
+                    homeLon = body.trackLon
+                    sessionStore.updateProfile(
+                        email = sessionStore.getUserEmail().orEmpty(),
+                        displayName = sessionStore.getDisplayName(),
+                        hasTracking = sessionStore.hasTracking(),
+                        trackLat = it,
+                        trackLon = body.trackLon,
+                    )
                 }
-                LoadState.Error(msg)
+                motion.sync(body.flights)
+                LoadState.Success(motion.all().toList())
+            } catch (e: HttpException) {
+                LoadState.Error(
+                    when (e.code()) {
+                        401, 403 -> "Session expired or tracking subscription required."
+                        else -> "HTTP ${e.code()}"
+                    },
+                )
             } catch (e: Exception) {
                 LoadState.Error(e.message ?: "Could not load live flights")
             }
@@ -83,6 +116,7 @@ fun LiveScreen(sessionStore: SessionStore) {
     }
 
     val count = (state as? LoadState.Success)?.data?.size ?: 0
+    val listPlanes = (state as? LoadState.Success)?.data.orEmpty()
 
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
@@ -91,97 +125,103 @@ fun LiveScreen(sessionStore: SessionStore) {
                 is LoadState.Success -> "$count aircraft · updates every ${POLL_MS / 1000}s"
                 is LoadState.Loading -> "Updating…"
                 is LoadState.Error -> st.message
-                else -> "Live ADS-B near your location"
+                else -> "Map centred on your tracking location"
             },
         )
 
-        PrimaryTabRow(selectedTabIndex = pane) {
+        PrimaryTabRow(selectedTabIndex = pane, modifier = Modifier.fillMaxWidth()) {
             Tab(
                 selected = pane == LivePane.Map.ordinal,
                 onClick = { pane = LivePane.Map.ordinal },
                 text = { Text("Map") },
-                icon = { androidx.compose.material3.Icon(Icons.Default.Map, null) },
+                icon = { Icon(Icons.Default.Map, contentDescription = null) },
             )
             Tab(
                 selected = pane == LivePane.List.ordinal,
                 onClick = { pane = LivePane.List.ordinal },
                 text = { Text("List") },
-                icon = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.List, null) },
+                icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
             )
         }
 
-        when (val s = state) {
-            LoadState.Idle, LoadState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(if (pane == LivePane.List.ordinal) 0.48f else 1f),
+        ) {
+            if (state is LoadState.Loading && listPlanes.isEmpty()) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else {
+                LiveMapView(
+                    motion = motion,
+                    homeLat = homeLat,
+                    homeLon = homeLon,
+                    selectedKey = selectedKey,
+                    refreshTick = mapTick,
+                    scope = scope,
+                    onMarkerClick = { p ->
+                        selectedKey = p.key
+                        val reg = p.flight.registration
+                        if (!reg.isNullOrBlank()) {
+                            navController.navigate("aircraft/${reg.trim()}")
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
-
-            is LoadState.Error -> {
-                Box(
+            if (state is LoadState.Error && listPlanes.isEmpty()) {
+                Text(
+                    (state as LoadState.Error).message,
+                    color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(s.message, color = MaterialTheme.colorScheme.error)
+                        .align(Alignment.Center)
+                        .padding(16.dp),
+                )
+            }
+        }
+
+        when (pane) {
+            LivePane.Map.ordinal -> {
+                selectedKey?.let { key ->
+                    listPlanes.firstOrNull { it.key == key }?.let { mp ->
+                        FlightRowCard(
+                            flight = mp.flight,
+                            imageUrl = MediaUrls.listArtwork(mp.flight.media),
+                            selected = true,
+                            onClick = {
+                                mp.flight.registration?.let { navController.navigate("aircraft/$it") }
+                            },
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
             }
 
-            is LoadState.Success -> {
-                if (pane == LivePane.Map.ordinal) {
-                    if (s.data.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("Nothing overhead — map will show aircraft when they appear.")
-                        }
-                    } else {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            LiveMapView(
-                                flights = s.data,
-                                homeLat = homeLat,
-                                homeLon = homeLon,
-                                selectedKey = selectedKey,
-                                onMarkerClick = { selectedKey = flightKey(it) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                            selectedKey?.let { key ->
-                                val f = s.data.firstOrNull { flightKey(it) == key }
-                                if (f != null) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .align(Alignment.BottomCenter)
-                                            .padding(12.dp),
-                                    ) {
-                                        FlightRowCard(flight = f, selected = true)
-                                    }
-                                }
-                            }
-                        }
-                    }
+            LivePane.List.ordinal -> {
+                if (listPlanes.isEmpty()) {
+                    Text(
+                        "No aircraft overhead — map stays on your tracking area.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
                 } else {
-                    if (s.data.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("No aircraft in range.")
-                        }
-                    } else {
-                        LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            items(s.data, key = { flightKey(it) }) { f ->
-                                FlightRowCard(
-                                    flight = f,
-                                    selected = flightKey(f) == selectedKey,
-                                    onClick = { selectedKey = flightKey(f) },
-                                )
-                            }
+                    LazyColumn(
+                        contentPadding = PaddingValues(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(0.52f),
+                    ) {
+                        items(listPlanes, key = { it.key }) { mp ->
+                            FlightRowCard(
+                                flight = mp.flight,
+                                imageUrl = MediaUrls.listArtwork(mp.flight.media),
+                                selected = mp.key == selectedKey,
+                                onClick = {
+                                    selectedKey = mp.key
+                                    mp.flight.registration?.let { navController.navigate("aircraft/$it") }
+                                },
+                            )
                         }
                     }
                 }

@@ -12,9 +12,10 @@ android {
         applicationId = "uk.aviationdb.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
         buildConfigField("String", "API_BASE_URL", "\"https://aviationdb.uk/api/v1/\"")
+        buildConfigField("String", "SITE_BASE_URL", "\"https://aviationdb.uk\"")
     }
 
     buildTypes {
@@ -75,4 +76,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(libs.maplibre.android)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 }

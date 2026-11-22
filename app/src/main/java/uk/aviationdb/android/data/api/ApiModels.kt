@@ -17,6 +17,9 @@ data class ApiErrorDetail(
 @JsonClass(generateAdapter = true)
 data class ActiveFlightsResponse(
     @Json(name = "active_now") val activeNow: Int,
+    @Json(name = "track_lat") val trackLat: Double? = null,
+    @Json(name = "track_lon") val trackLon: Double? = null,
+    @Json(name = "tracker_sec") val trackerSec: Int? = 20,
     val flights: List<ActiveFlight>,
 )
 
@@ -31,6 +34,8 @@ data class ActiveFlight(
     @Json(name = "origin_icao") val originIcao: String?,
     @Json(name = "dest_icao") val destIcao: String?,
     @Json(name = "aircraft_type") val aircraftType: String?,
+    @Json(name = "model_icao") val modelIcao: String? = null,
+    val media: FlightMedia? = null,
     val altitude: Int?,
     val speed: Int?,
     val heading: Int?,

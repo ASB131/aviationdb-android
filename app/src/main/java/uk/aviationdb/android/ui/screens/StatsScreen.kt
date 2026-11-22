@@ -3,12 +3,11 @@ package uk.aviationdb.android.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.material3.Button
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,15 +16,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.api.SummaryResponse
+import uk.aviationdb.android.data.api.StatsOverviewResponse
 import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbTopBanner
@@ -35,19 +30,17 @@ import uk.aviationdb.android.ui.components.StatTile
 fun StatsScreen(sessionStore: SessionStore) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var summary by remember { mutableStateOf<SummaryResponse?>(null) }
-    val scope = rememberCoroutineScope()
+    var stats by remember { mutableStateOf<StatsOverviewResponse?>(null) }
 
-    suspend fun load() {
+    LaunchedEffect(sessionStore.isSignedIn(), sessionStore.hasTracking()) {
+        if (!sessionStore.isSignedIn() || !sessionStore.hasTracking()) {
+            error = "Tracking subscription required for personal stats."
+            loading = false
+            return@LaunchedEffect
+        }
         loading = true
-        error = null
         try {
-            summary = ApiProvider.service().summary()
-        } catch (e: HttpException) {
-            error = when (e.code()) {
-                403 -> "Stats need an active tracking plan."
-                else -> "HTTP ${e.code()}"
-            }
+            stats = ApiProvider.service().statsOverview()
         } catch (e: Exception) {
             error = e.message
         } finally {
@@ -55,75 +48,67 @@ fun StatsScreen(sessionStore: SessionStore) {
         }
     }
 
-    LaunchedEffect(sessionStore.isSignedIn(), sessionStore.hasTracking()) {
-        if (!sessionStore.isSignedIn()) {
-            error = "Sign in required."
-            loading = false
-            return@LaunchedEffect
-        }
-        if (!sessionStore.hasTracking()) {
-            error = "Subscribe to tracking on aviationdb.uk for personal stats."
-            loading = false
-            return@LaunchedEffect
-        }
-        load()
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Your stats",
-            subtitle = "Personal tracking overview",
+            subtitle = stats?.planName ?: "Personal dashboard",
         )
 
         when {
-            loading -> {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            error != null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(error!!, color = MaterialTheme.colorScheme.error)
-                    Button(
-                        onClick = { scope.launch { load() } },
-                        modifier = Modifier.padding(top = 8.dp),
-                    ) { Text("Retry") }
-                }
-            }
-
-            summary != null -> {
-                val s = summary!!
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+            loading -> CircularProgressIndicator(Modifier.padding(24.dp))
+            error != null -> Text(error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+            stats != null -> {
+                val s = stats!!
+                LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    item { StatTile("Overhead now", (s.activeNow ?: 0).toString()) }
-                    item { StatTile("Sightings", (s.totalSightings ?: 0).toString()) }
-                    item { StatTile("Unique regs", (s.uniqueRegistrations ?: 0).toString()) }
-                    item { StatTile("History days", (s.plan?.historyDays ?: 0).toString()) }
-                }
-                AdbCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                ) {
-                    Text(
-                        "Full charts and exports live on aviationdb.uk — use Stats in the browser for the complete dashboard.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            StatTile("Overhead", (s.activeNow ?: 0).toString(), modifier = Modifier.weight(1f))
+                            StatTile("Sightings", (s.totalSightings ?: 0).toString(), modifier = Modifier.weight(1f))
+                        }
+                    }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            StatTile("Unique regs", (s.uniqueRegistrations ?: 0).toString(), modifier = Modifier.weight(1f))
+                            StatTile("Callsigns", (s.uniqueCallsigns ?: 0).toString(), modifier = Modifier.weight(1f))
+                        }
+                    }
+                    item {
+                        Text(
+                            "${s.historyDays ?: 0} day history window",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    item {
+                        AdbCard {
+                            Text("Most seen registrations", style = MaterialTheme.typography.titleMedium)
+                            s.topRegistrations.orEmpty().forEach {
+                                Text(
+                                    "${it.registration ?: "?"} · ${it.c ?: 0}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        AdbCard {
+                            Text("Top operators", style = MaterialTheme.typography.titleMedium)
+                            s.topOperators.orEmpty().forEach {
+                                Text(
+                                    "${it.operator ?: "?"} · ${it.c ?: 0}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                    }
+                    item {
+                        Text(
+                            "Charts, timelines, and country breakdowns: open Stats on aviationdb.uk.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
         }

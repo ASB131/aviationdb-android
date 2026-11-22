@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.clickable
@@ -76,20 +79,22 @@ fun AdbCard(
 @Composable
 fun FlightRowCard(
     flight: ActiveFlight,
+    imageUrl: String? = null,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
 ) {
-    val accent = if (selected) SkyBlue else Color.Transparent
-    AdbCard(onClick = onClick) {
+    AdbCard(onClick = onClick, modifier = modifier) {
         Row {
-            Box(
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
                 modifier = Modifier
-                    .padding(end = 10.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(accent.copy(alpha = if (selected) 0.15f else 0f))
-                    .padding(horizontal = 4.dp),
-            ) {
-                Column {
+                    .size(56.dp)
+                    .padding(end = 10.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Column(modifier = Modifier.weight(1f)) {
                     val title = listOfNotNull(flight.callsign, flight.registration)
                         .joinToString(" · ")
                         .ifBlank { "Unknown" }
@@ -107,7 +112,6 @@ fun FlightRowCard(
                     if (meta.isNotBlank()) {
                         Text(meta, style = MaterialTheme.typography.bodySmall)
                     }
-                }
             }
         }
     }

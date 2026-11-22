@@ -17,6 +17,18 @@ interface AviationDbApi {
     @GET("me/active")
     suspend fun activeFlights(): ActiveFlightsResponse
 
+    @GET("me/profile")
+    suspend fun profile(): ProfileResponse
+
+    @GET("me/stats_overview")
+    suspend fun statsOverview(): StatsOverviewResponse
+
+    @GET("me/aircraft")
+    suspend fun meAircraft(
+        @Query("registration") registration: String,
+        @Query("limit") limit: Int = 10,
+    ): Map<String, Any?>
+
     @GET("me/sightings")
     suspend fun sightings(
         @Query("limit") limit: Int = 50,
@@ -29,6 +41,11 @@ interface AviationDbApi {
     @GET("aircraft")
     suspend fun aircraftShort(
         @Query("aircraft_short") registration: String,
+    ): Map<String, Any?>
+
+    @GET("aircraft")
+    suspend fun aircraftFull(
+        @Query("aircraft_full") registration: String,
     ): Map<String, Any?>
 
     @GET("airlines")

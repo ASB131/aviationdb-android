@@ -20,12 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.screens.AccountScreen
+import uk.aviationdb.android.ui.screens.AircraftDetailScreen
 import uk.aviationdb.android.ui.screens.BrowseScreen
 import uk.aviationdb.android.ui.screens.LiveScreen
 import uk.aviationdb.android.ui.screens.SightingsScreen
@@ -49,43 +52,46 @@ fun AviationDbApp(
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val destination = backStack?.destination
+    val onAircraftDetail = destination?.route?.startsWith("aircraft/") == true
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            NavigationBar(containerColor = Color.White) {
-                Tab.entries.forEach { tab ->
-                    val selected = destination?.hierarchy?.any { it.route == tab.route } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            nav.navigate(tab.route) {
-                                popUpTo(nav.graph.findStartDestination().id) {
-                                    saveState = true
+            if (!onAircraftDetail) {
+                NavigationBar(containerColor = Color.White) {
+                    Tab.entries.forEach { tab ->
+                        val selected = destination?.hierarchy?.any { it.route == tab.route } == true
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                nav.navigate(tab.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = when (tab) {
-                                    Tab.Live -> Icons.Default.Flight
-                                    Tab.Sightings -> Icons.AutoMirrored.Filled.List
-                                    Tab.Stats -> Icons.Default.BarChart
-                                    Tab.Browse -> Icons.Default.Search
-                                    Tab.Account -> Icons.Default.Person
-                                },
-                                contentDescription = tab.label,
-                            )
-                        },
-                        label = { Text(tab.label) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = SkyBlue,
-                            selectedTextColor = Navy,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    )
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = when (tab) {
+                                        Tab.Live -> Icons.Default.Flight
+                                        Tab.Sightings -> Icons.AutoMirrored.Filled.List
+                                        Tab.Stats -> Icons.Default.BarChart
+                                        Tab.Browse -> Icons.Default.Search
+                                        Tab.Account -> Icons.Default.Person
+                                    },
+                                    contentDescription = tab.label,
+                                )
+                            },
+                            label = { Text(tab.label) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = SkyBlue,
+                                selectedTextColor = Navy,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
+                        )
+                    }
                 }
             }
         },
@@ -95,11 +101,18 @@ fun AviationDbApp(
             startDestination = Tab.Live.route,
             modifier = Modifier.padding(padding),
         ) {
-            composable(Tab.Live.route) { LiveScreen(sessionStore) }
+            composable(Tab.Live.route) { LiveScreen(sessionStore, nav) }
             composable(Tab.Sightings.route) { SightingsScreen(sessionStore) }
             composable(Tab.Stats.route) { StatsScreen(sessionStore) }
             composable(Tab.Browse.route) { BrowseScreen(sessionStore) }
             composable(Tab.Account.route) { AccountScreen(sessionStore, onSignedOut) }
+            composable(
+                route = "aircraft/{reg}",
+                arguments = listOf(navArgument("reg") { type = NavType.StringType }),
+            ) { entry ->
+                val reg = entry.arguments?.getString("reg").orEmpty()
+                AircraftDetailScreen(registration = reg, onBack = { nav.popBackStack() })
+            }
         }
     }
 }
