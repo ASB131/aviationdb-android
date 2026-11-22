@@ -14,7 +14,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.account.TrackingLocationPickerDialog
 import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.ui.navigation.openSitePath
 import uk.aviationdb.android.ui.theme.Danger
@@ -49,8 +49,7 @@ fun AccountScreen(
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var trackMsg by remember { mutableStateOf<String?>(null) }
-    var latField by remember { mutableStateOf("") }
-    var lonField by remember { mutableStateOf("") }
+    var showMapPicker by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -59,8 +58,6 @@ fun AccountScreen(
         try {
             profile = ApiProvider.service().profile()
             profile?.let { p ->
-                latField = p.user.trackLat?.toString().orEmpty()
-                lonField = p.user.trackLon?.toString().orEmpty()
                 sessionStore.updateProfile(
                     email = p.user.email,
                     displayName = p.user.displayName,
@@ -118,55 +115,24 @@ fun AccountScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Tracking location", style = MaterialTheme.typography.titleMedium)
                             HorizontalDivider()
-                            OutlinedTextField(
-                                value = latField,
-                                onValueChange = { latField = it },
-                                label = { Text("Latitude") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                            )
-                            OutlinedTextField(
-                                value = lonField,
-                                onValueChange = { lonField = it },
-                                label = { Text("Longitude") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
+                            val lat = p.user.trackLat
+                            val lon = p.user.trackLon
+                            AdbDetailRow(
+                                "Home",
+                                if (lat != null && lon != null) {
+                                    "${"%.5f".format(lat)}, ${"%.5f".format(lon)}"
+                                } else {
+                                    "Not set — choose on the map"
+                                },
                             )
                             AdbDetailRow("Timezone", p.user.timezone ?: "—")
                             trackMsg?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             }
                             Button(
-                                onClick = {
-                                    scope.launch {
-                                        try {
-                                            val lat = latField.trim().toDoubleOrNull()
-                                            val lon = lonField.trim().toDoubleOrNull()
-                                            if (lat == null || lon == null) {
-                                                trackMsg = "Enter valid latitude and longitude."
-                                                return@launch
-                                            }
-                                            val res = ApiProvider.service().updateTracking(
-                                                TrackingUpdateRequest(lat, lon, p.user.timezone),
-                                            )
-                                            trackMsg = "Location saved."
-                                            sessionStore.updateProfile(
-                                                email = p.user.email,
-                                                displayName = p.user.displayName,
-                                                hasTracking = p.plan.hasTracking == true,
-                                                trackLat = res.trackLat,
-                                                trackLon = res.trackLon,
-                                            )
-                                            profile = profile?.copy(
-                                                user = p.user.copy(trackLat = res.trackLat, trackLon = res.trackLon),
-                                            )
-                                        } catch (e: Exception) {
-                                            trackMsg = e.message ?: "Save failed"
-                                        }
-                                    }
-                                },
+                                onClick = { showMapPicker = true },
                                 modifier = Modifier.fillMaxWidth(),
-                            ) { Text("Save tracking location") }
+                            ) { Text("Set location on map") }
                         }
                     }
 
@@ -280,6 +246,36 @@ fun AccountScreen(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = Danger),
             ) { Text("Sign out") }
+        }
+
+        if (showMapPicker && profile != null) {
+            val p = profile!!
+            TrackingLocationPickerDialog(
+                initialLat = p.user.trackLat,
+                initialLon = p.user.trackLon,
+                onDismiss = { showMapPicker = false },
+                onConfirm = { lat, lon ->
+                    showMapPicker = false
+                    scope.launch {
+                        try {
+                            val res = ApiProvider.service().updateTracking(
+                                TrackingUpdateRequest(lat, lon, p.user.timezone),
+                            )
+                            trackMsg = "Location saved."
+                            sessionStore.updateProfile(
+                                email = p.user.email,
+                                displayName = p.user.displayName,
+                                hasTracking = p.plan.hasTracking == true,
+                                trackLat = res.trackLat,
+                                trackLon = res.trackLon,
+                            )
+                            profile = p.copy(user = p.user.copy(trackLat = res.trackLat, trackLon = res.trackLon))
+                        } catch (e: Exception) {
+                            trackMsg = e.message ?: "Save failed"
+                        }
+                    }
+                },
+            )
         }
     }
 }

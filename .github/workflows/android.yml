@@ -54,5 +54,6 @@ jobs:
             echo "- **Version:** ${{ steps.version.outputs.name }} (code ${{ steps.version.outputs.code }})"
             echo "- **Artifact:** \`aviationdb-${{ steps.version.outputs.name }}-debug-apk\`"
             echo "- Uninstall the old app, then install the APK inside that artifact (filename includes version)."
-            echo "- In-app: Account or login footer should show **${{ steps.version.outputs.name }}**."
+            echo "- In-app: Account screen shows **App version ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})**."
+            echo "- Debug APK size stays ~30–40MB (MapLibre native libs); use version string, not file size, to confirm updates."
           } >> "$GITHUB_STEP_SUMMARY"
