@@ -3,6 +3,7 @@ package uk.aviationdb.android.ui.live
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Matrix
 import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
 import coil.decode.SvgDecoder
@@ -31,5 +32,10 @@ object MapIconCache {
         drawable.draw(canvas)
         cache[url] = bmp
         bmp
+    }
+
+    fun rotated(source: Bitmap, degrees: Float): Bitmap {
+        val matrix = Matrix().apply { postRotate(degrees, source.width / 2f, source.height / 2f) }
+        return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
     }
 }

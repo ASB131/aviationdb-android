@@ -65,7 +65,7 @@ fun AccountScreen(
             .verticalScroll(rememberScrollState()),
     ) {
         AdbTopBanner(
-            title = profile?.user?.displayName?.ifBlank { "Account" } ?: sessionStore.getDisplayName().ifBlank { "Account" },
+            title = (profile?.user?.displayName ?: sessionStore.getDisplayName().orEmpty()).ifBlank { "Account" },
             subtitle = profile?.user?.email ?: sessionStore.getUserEmail(),
         )
 

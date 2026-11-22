@@ -180,9 +180,13 @@ private class MapHolder {
             val options = MarkerOptions()
                 .position(LatLng(p.displayLat, p.displayLon))
                 .title(f.callsign ?: f.registration ?: "Aircraft")
-                .rotation(p.headingDeg.toFloat())
             if (bmp != null) {
-                options.icon(org.maplibre.android.annotations.IconFactory.getInstance(context).fromBitmap(bmp))
+                val iconBmp = if (p.headingDeg != 0.0) {
+                    MapIconCache.rotated(bmp, p.headingDeg.toFloat())
+                } else {
+                    bmp
+                }
+                options.icon(org.maplibre.android.annotations.IconFactory.getInstance(context).fromBitmap(iconBmp))
             }
             val marker = m.addMarker(options)
             if (marker != null) {

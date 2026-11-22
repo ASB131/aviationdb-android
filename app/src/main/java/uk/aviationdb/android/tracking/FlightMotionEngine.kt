@@ -6,7 +6,7 @@ import kotlin.math.sin
 
 data class MotionPlane(
     val key: String,
-    val flight: ActiveFlight,
+    var flight: ActiveFlight,
     var displayLat: Double,
     var displayLon: Double,
     var headingDeg: Double,
