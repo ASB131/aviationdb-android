@@ -251,9 +251,9 @@ fun BrowseScreen(
                 ) { Text(if (busy) "Searching…" else "Search") }
             }
 
-            error?.let { msg ->
+            if (error != null) {
                 item {
-                    Text(msg, color = MaterialTheme.colorScheme.error)
+                    Text(error!!, color = MaterialTheme.colorScheme.error)
                 }
             }
 
@@ -326,35 +326,37 @@ fun BrowseScreen(
                 else -> {}
             }
 
-            airport?.let { ap ->
+            val airportHit = airport
+            if (airportHit != null) {
                 item {
-                    val ident = ap.ident ?: query
+                    val ident = airportHit.ident ?: query
                     AdbCard(onClick = {
                         navController.navigate("airport/${URLEncoder.encode(ident, Charsets.UTF_8.name())}")
                     }) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(ap.name ?: ident, style = MaterialTheme.typography.titleLarge)
+                            Text(airportHit.name ?: ident, style = MaterialTheme.typography.titleLarge)
                             Text("Tap for runways and full details", style = MaterialTheme.typography.bodySmall)
                             AdbDetailRow("ICAO", ident)
-                            AdbDetailRow("IATA", ap.iata ?: "—")
+                            AdbDetailRow("IATA", airportHit.iata ?: "—")
                         }
                     }
                 }
             }
 
-            callsignSummary?.let { m ->
+            val callsignHit = callsignSummary
+            if (callsignHit != null) {
                 item {
-                    val cs = m.callsign ?: query
+                    val cs = callsignHit.callsign ?: query
                     AdbCard(onClick = {
                         navController.navigate("callsign/${URLEncoder.encode(cs, Charsets.UTF_8.name())}")
                     }) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(cs, style = MaterialTheme.typography.titleLarge)
                             Text("Tap to view your sighting history", style = MaterialTheme.typography.bodySmall)
-                            val route = listOfNotNull(m.routeFrom, m.routeTo).joinToString(" → ")
+                            val route = listOfNotNull(callsignHit.routeFrom, callsignHit.routeTo).joinToString(" → ")
                             if (route.isNotBlank()) Text(route, style = MaterialTheme.typography.bodyMedium)
-                            AdbDetailRow("Operator", m.operator ?: "—")
-                            AdbDetailRow("Your sightings", (m.callsignsTotal ?: 0).toString())
+                            AdbDetailRow("Operator", callsignHit.operator ?: "—")
+                            AdbDetailRow("Your sightings", (callsignHit.callsignsTotal ?: 0).toString())
                         }
                     }
                 }
