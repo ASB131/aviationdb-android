@@ -3,14 +3,17 @@ package uk.aviationdb.android.ui.live
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -38,7 +41,6 @@ fun LiveMapView(
     selectedKey: String?,
     syncTick: Long,
     positionTick: Long,
-    scope: CoroutineScope,
     onMarkerClick: (MotionPlane) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -46,6 +48,8 @@ fun LiveMapView(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     remember { MapLibre.getInstance(context) }
     val holder = remember { MapHolder() }
+    var mapReady by remember { mutableStateOf(false) }
+    val composeScope = rememberCoroutineScope()
 
     AndroidView(
         modifier = modifier,
@@ -58,7 +62,11 @@ fun LiveMapView(
                     map.setStyle(CARTO_STYLE) {
                         holder.map = map
                         holder.styleReady = true
+                        mapReady = true
                         holder.applyHome(homeLat, homeLon)
+                        composeScope.launch {
+                            holder.syncMarkers(context, motion, selectedKey, onMarkerClick)
+                        }
                     }
                 }
                 holder.mapView = this
@@ -89,10 +97,9 @@ fun LiveMapView(
         holder.fitUserArea(motion, homeLat, homeLon)
     }
 
-    LaunchedEffect(syncTick, selectedKey) {
-        scope.launch {
-            holder.syncMarkers(context, motion, selectedKey, onMarkerClick)
-        }
+    LaunchedEffect(mapReady, syncTick, selectedKey) {
+        if (!mapReady) return@LaunchedEffect
+        holder.syncMarkers(context, motion, selectedKey, onMarkerClick)
     }
 
     LaunchedEffect(positionTick) {
@@ -243,7 +250,8 @@ private class MapHolder {
         iconUrl: String,
         heading: Int,
     ) {
-        val bmp = MapIconCache.load(context, iconUrl, ICON_PX) ?: return
+        val bmp = MapIconCache.load(context, iconUrl, ICON_PX)
+            ?: MapIconCache.defaultPlaneIcon(context, ICON_PX)
         var iconBmp = MapIconCache.withDropShadow(bmp)
         if (heading != 0) {
             iconBmp = MapIconCache.rotated(iconBmp, heading.toFloat())

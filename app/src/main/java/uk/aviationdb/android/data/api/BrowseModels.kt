@@ -7,6 +7,9 @@ import com.squareup.moshi.JsonClass
 data class AircraftSearchResponse(
     val query: String?,
     val total: Int?,
+    val limit: Int?,
+    val offset: Int?,
+    @Json(name = "has_more") val hasMore: Boolean?,
     val results: List<AircraftBrowse>?,
 )
 
@@ -27,6 +30,17 @@ data class AircraftBrowse(
     val operator: String?,
     @Json(name = "airline_code") val airlineCode: String?,
     @Json(name = "is_private_operator") val isPrivateOperator: Boolean?,
+    @Json(name = "card_image_url") val cardImageUrl: String?,
+)
+
+@JsonClass(generateAdapter = true)
+data class AirlineSearchResponse(
+    val query: String?,
+    val total: Int?,
+    val limit: Int?,
+    val offset: Int?,
+    @Json(name = "has_more") val hasMore: Boolean?,
+    val results: List<AirlineBrowse>?,
 )
 
 @JsonClass(generateAdapter = true)
@@ -42,6 +56,8 @@ data class AirlineBrowse(
     val country: String?,
     val region: String?,
     val status: String?,
+    @Json(name = "logo_url") val logoUrl: String?,
+    @Json(name = "brand_colors") val brandColors: String?,
 )
 
 @JsonClass(generateAdapter = true)

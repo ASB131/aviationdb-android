@@ -59,7 +59,7 @@ private fun chartLabel(row: StatsChartRow): String =
 fun StatsScreen(sessionStore: SessionStore) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var range by remember { mutableStateOf("30d") }
+    var range by remember { mutableStateOf("today") }
     var summary by remember { mutableStateOf<StatsSummaryResponse?>(null) }
     var operators by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }
     var types by remember { mutableStateOf<List<StatsChartRow>>(emptyList()) }

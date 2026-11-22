@@ -1,12 +1,17 @@
 package uk.aviationdb.android.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +26,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import uk.aviationdb.android.data.ApiProvider
+import uk.aviationdb.android.data.PlanespottersPhotos
 import uk.aviationdb.android.data.api.MeAircraftResponse
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
@@ -33,6 +39,11 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var data by remember { mutableStateOf<MeAircraftResponse?>(null) }
+    var spotterPhotos by remember(registration) { mutableStateOf<List<String>>(emptyList()) }
+
+    LaunchedEffect(registration) {
+        spotterPhotos = PlanespottersPhotos.photoUrls(registration, max = 12)
+    }
 
     LaunchedEffect(registration) {
         loading = true
@@ -72,12 +83,31 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    liveryUrl?.let {
-                        AsyncImage(
-                            model = it,
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.Fit,
+                    val gallery = buildList {
+                        liveryUrl?.let { add(it) }
+                        spotterPhotos.forEach { url -> if (url !in this) add(url) }
+                    }
+                    if (gallery.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            gallery.forEach { url ->
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(width = 280.dp, height = 158.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                        }
+                        Text(
+                            "Swipe for livery and spotting photos",
+                            style = MaterialTheme.typography.labelSmall,
                         )
                     }
 

@@ -17,6 +17,24 @@ import kotlinx.coroutines.withContext
 object MapIconCache {
     private val cache = mutableMapOf<String, Bitmap>()
 
+    fun defaultPlaneIcon(context: Context, sizePx: Int): Bitmap {
+        val key = "__default_plane__$sizePx"
+        cache[key]?.let { return it }
+        val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#1e88e5") }
+        val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = sizePx * 0.06f
+        }
+        val r = sizePx * 0.28f
+        canvas.drawCircle(sizePx / 2f, sizePx / 2f, r, fill)
+        canvas.drawCircle(sizePx / 2f, sizePx / 2f, r, stroke)
+        cache[key] = bmp
+        return bmp
+    }
+
     suspend fun load(context: Context, url: String, sizePx: Int = 64): Bitmap? = withContext(Dispatchers.IO) {
         cache[url]?.let { return@withContext it }
         val loader = ImageLoader.Builder(context)

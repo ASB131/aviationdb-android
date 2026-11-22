@@ -61,7 +61,15 @@ interface AviationDbApi {
     suspend fun aircraftSearch(
         @Query("aircraft_search") query: String,
         @Query("limit") limit: Int = 25,
+        @Query("offset") offset: Int = 0,
     ): AircraftSearchResponse
+
+    @GET("airlines")
+    suspend fun airlineSearch(
+        @Query("airline_search") query: String,
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0,
+    ): AirlineSearchResponse
 
     @GET("aircraft")
     suspend fun aircraftShort(
