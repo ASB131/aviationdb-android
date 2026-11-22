@@ -44,13 +44,32 @@ data class StatsSummaryChange(
 data class StatsChartResponse(
     val range: String?,
     val metric: String?,
+    val bucket: String?,
+    val title: String?,
     val rows: List<StatsChartRow>?,
+)
+
+@JsonClass(generateAdapter = true)
+data class StatsKpisResponse(
+    val range: String?,
+    @Json(name = "history_days") val historyDays: Int?,
+    @Json(name = "total_flights") val totalFlights: Int?,
+    @Json(name = "active_days") val activeDays: Int?,
+    @Json(name = "avg_per_day") val avgPerDay: Double?,
+    @Json(name = "avg_per_hour") val avgPerHour: Double?,
+    @Json(name = "with_route") val withRoute: Int?,
+    @Json(name = "route_pct") val routePct: Double?,
+    @Json(name = "unique_airports") val uniqueAirports: Int?,
+    @Json(name = "single_visit_registrations") val singleVisitRegistrations: Int?,
+    @Json(name = "peak_hour") val peakHour: Int?,
+    @Json(name = "peak_hour_count") val peakHourCount: Int?,
 )
 
 @JsonClass(generateAdapter = true)
 data class StatsChartRow(
     val label: String?,
     val operator: String?,
+    val registration: String?,
     val c: Int?,
     val t: String?,
 )

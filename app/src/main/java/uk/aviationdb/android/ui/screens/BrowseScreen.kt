@@ -1,7 +1,6 @@
 package uk.aviationdb.android.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,7 +43,6 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.PlanespottersPhotos
 import uk.aviationdb.android.data.api.AircraftBrowse
 import uk.aviationdb.android.data.api.AirlineBrowse
 import uk.aviationdb.android.data.api.AirportBrowse
@@ -263,17 +261,13 @@ fun BrowseScreen(
                 BrowseMode.Aircraft -> {
                     items(aircraftResults, key = { it.registration ?: it.icao24 ?: it.hashCode() }) { a ->
                         val reg = a.registration ?: return@items
-                        val imageUrl = a.cardImageUrl?.let { MediaUrls.absolute(it) }
                         AdbCard(onClick = { navController.navigate("aircraft/$reg") }) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                AircraftBrowseImageStrip(registration = reg, liveryUrl = imageUrl)
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text(reg, style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        listOfNotNull(a.aircraftModel, a.operator).joinToString(" · "),
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                }
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(reg, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    listOfNotNull(a.aircraftModel, a.operator).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
                             }
                         }
                     }
@@ -373,36 +367,6 @@ fun BrowseScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AircraftBrowseImageStrip(registration: String, liveryUrl: String?) {
-    var photoUrls by remember(registration) { mutableStateOf<List<String>>(emptyList()) }
-    LaunchedEffect(registration) {
-        photoUrls = PlanespottersPhotos.photoUrls(registration, max = 4)
-    }
-    val urls = buildList {
-        liveryUrl?.let { add(it) }
-        photoUrls.forEach { if (it !in this) add(it) }
-    }
-    if (urls.isEmpty()) return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        urls.forEach { url ->
-            AsyncImage(
-                model = url,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(width = 160.dp, height = 90.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-            )
         }
     }
 }

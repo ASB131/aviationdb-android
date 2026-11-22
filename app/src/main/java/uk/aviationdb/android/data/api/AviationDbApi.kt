@@ -27,6 +27,9 @@ interface AviationDbApi {
     @GET("me/stats_summary")
     suspend fun statsSummary(@Query("range") range: String? = null): StatsSummaryResponse
 
+    @GET("me/stats_kpis")
+    suspend fun statsKpis(@Query("range") range: String? = null): StatsKpisResponse
+
     @GET("me/stats_charts")
     suspend fun statsCharts(
         @Query("metric") metric: String,

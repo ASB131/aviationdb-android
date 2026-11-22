@@ -59,7 +59,7 @@ private enum class AppSection(val route: String, val label: String) {
 private data class WebLink(val label: String, val path: String)
 
 private val webLinks = listOf(
-    WebLink("Full stats & charts", "/stats"),
+    WebLink("Stats full (web)", "/stats_full"),
     WebLink("Active (web map)", "/active"),
     WebLink("Browse aircraft", "/search"),
     WebLink("Airlines directory", "/airlines"),
