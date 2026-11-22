@@ -5,8 +5,8 @@ Native Kotlin app for [AviationDB](https://aviationdb.uk): live overhead trackin
 ## Requirements
 
 - Android 8.0+ (API 26)
-- AviationDB account with an **API key** and active **tracking** subscription for Live / Sightings / Account test
-- API keys are created on the website under **Account**
+- AviationDB account (**email + password**, same as the website)
+- Active **tracking** subscription for Live and Sightings
 
 ## Build locally
 

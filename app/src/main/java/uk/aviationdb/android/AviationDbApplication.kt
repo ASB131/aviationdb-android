@@ -2,15 +2,15 @@ package uk.aviationdb.android
 
 import android.app.Application
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 
 class AviationDbApplication : Application() {
-    lateinit var apiKeyStore: ApiKeyStore
+    lateinit var sessionStore: SessionStore
         private set
 
     override fun onCreate() {
         super.onCreate()
-        apiKeyStore = ApiKeyStore(this)
-        ApiProvider.init(apiKeyStore)
+        sessionStore = SessionStore(this)
+        ApiProvider.init(sessionStore)
     }
 }

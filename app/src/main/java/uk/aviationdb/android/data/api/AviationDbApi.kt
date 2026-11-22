@@ -1,9 +1,19 @@
 package uk.aviationdb.android.data.api
 
+import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface AviationDbApi {
+    @POST("auth/login")
+    suspend fun login(@Body body: LoginRequest): LoginResponse
+
+    @POST("auth/logout")
+    suspend fun logout()
+
+    @GET("auth/session")
+    suspend fun session(): SessionResponse
     @GET("me/active")
     suspend fun activeFlights(): ActiveFlightsResponse
 

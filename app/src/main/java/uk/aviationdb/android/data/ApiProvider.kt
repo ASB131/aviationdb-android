@@ -9,24 +9,36 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import uk.aviationdb.android.BuildConfig
 import uk.aviationdb.android.data.api.AviationDbApi
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 import java.util.concurrent.TimeUnit
 
 object ApiProvider {
-  @Volatile
+    @Volatile
     private var api: AviationDbApi? = null
 
-    private lateinit var keyStore: ApiKeyStore
+    @Volatile
+    private var publicApi: AviationDbApi? = null
 
-    fun init(store: ApiKeyStore) {
-        keyStore = store
+    private lateinit var sessionStore: SessionStore
+
+    fun init(store: SessionStore) {
+        sessionStore = store
     }
 
     fun service(): AviationDbApi {
         val cached = api
         if (cached != null) return cached
         return synchronized(this) {
-            api ?: buildService().also { api = it }
+            api ?: buildService(authenticated = true).also { api = it }
+        }
+    }
+
+    /** Login only — no bearer header. */
+    fun publicService(): AviationDbApi {
+        val cached = publicApi
+        if (cached != null) return cached
+        return synchronized(this) {
+            publicApi ?: buildService(authenticated = false).also { publicApi = it }
         }
     }
 
@@ -36,17 +48,23 @@ object ApiProvider {
         }
     }
 
-    private fun buildService(): AviationDbApi {
-        val auth = Interceptor { chain ->
-            val key = keyStore.getApiKey()
-            val request = if (!key.isNullOrBlank()) {
-                chain.request().newBuilder()
-                    .header("Authorization", "Bearer $key")
-                    .build()
-            } else {
-                chain.request()
-            }
-            chain.proceed(request)
+    private fun buildService(authenticated: Boolean): AviationDbApi {
+        val builders = mutableListOf<Interceptor>()
+        if (authenticated) {
+            builders.add(
+                Interceptor { chain ->
+                    val token = sessionStore.getAccessToken()
+                    val request = if (!token.isNullOrBlank()) {
+                        chain.request().newBuilder()
+                            .header("Authorization", "Bearer $token")
+                            .header("X-App-Version", BuildConfig.VERSION_NAME)
+                            .build()
+                    } else {
+                        chain.request()
+                    }
+                    chain.proceed(request)
+                },
+            )
         }
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -55,9 +73,10 @@ object ApiProvider {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
+        builders.add(logging)
+
         val client = OkHttpClient.Builder()
-            .addInterceptor(auth)
-            .addInterceptor(logging)
+            .apply { builders.forEach { addInterceptor(it) } }
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

@@ -8,9 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -18,19 +17,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 
 @Composable
-fun AccountScreen(apiKeyStore: ApiKeyStore) {
-    var draft by remember { mutableStateOf(apiKeyStore.getApiKey().orEmpty()) }
+fun AccountScreen(
+    sessionStore: SessionStore,
+    onSignedOut: () -> Unit,
+) {
     var status by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    val email = sessionStore.getUserEmail().orEmpty()
+    val name = sessionStore.getDisplayName().orEmpty()
+    val tracking = sessionStore.hasTracking()
 
     Column(
         modifier = Modifier
@@ -39,45 +43,21 @@ fun AccountScreen(apiKeyStore: ApiKeyStore) {
             .verticalScroll(rememberScrollState()),
     ) {
         Text("Account", style = MaterialTheme.typography.headlineSmall)
+        if (name.isNotBlank()) {
+            Text(name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+        }
+        Text(email, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
         Text(
-            "Create an API key at aviationdb.uk → Account. The key is stored encrypted on this device only.",
+            if (tracking) "Tracking plan active" else "No active tracking plan — Live and Sightings need a tracking subscription",
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(vertical = 12.dp),
+            color = if (tracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
         )
 
-        OutlinedTextField(
-            value = draft,
-            onValueChange = { draft = it },
-            label = { Text("API key") },
-            modifier = Modifier.fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-        )
-
-        Button(
-            onClick = {
-                apiKeyStore.setApiKey(draft)
-                ApiProvider.reset()
-                status = "Saved."
-                error = null
-            },
-            modifier = Modifier.padding(top = 8.dp),
-            enabled = draft.isNotBlank(),
-        ) { Text("Save key") }
-
-        TextButton(
-            onClick = {
-                apiKeyStore.clearApiKey()
-                draft = ""
-                ApiProvider.reset()
-                status = "Key removed."
-                error = null
-            },
-        ) { Text("Clear key") }
-
-        Button(
+        OutlinedButton(
             onClick = {
                 scope.launch {
+                    busy = true
                     error = null
                     status = null
                     try {
@@ -87,19 +67,36 @@ fun AccountScreen(apiKeyStore: ApiKeyStore) {
                             summary.activeNow?.let { append("$it overhead now. ") }
                             summary.totalSightings?.let { append("$it sightings in history window.") }
                         }.trim()
-                    } catch (e: HttpException) {
-                        error = when (e.code()) {
-                            401, 403 -> "Key invalid or tracking subscription required."
-                            else -> "HTTP ${e.code()}"
-                        }
                     } catch (e: Exception) {
-                        error = e.message ?: "Test failed"
+                        error = e.message ?: "Could not reach server"
+                    } finally {
+                        busy = false
                     }
                 }
             },
-            modifier = Modifier.padding(top = 16.dp),
-            enabled = draft.isNotBlank(),
-        ) { Text("Test connection") }
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !busy,
+        ) { Text("Refresh status") }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    busy = true
+                    try {
+                        runCatching { ApiProvider.service().logout() }
+                    } finally {
+                        sessionStore.clear()
+                        ApiProvider.reset()
+                        busy = false
+                        onSignedOut()
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            enabled = !busy,
+        ) { Text("Sign out") }
 
         status?.let {
             Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))

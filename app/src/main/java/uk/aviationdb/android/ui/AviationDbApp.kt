@@ -20,7 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.screens.AccountScreen
 import uk.aviationdb.android.ui.screens.ExploreScreen
 import uk.aviationdb.android.ui.screens.LiveScreen
@@ -34,7 +34,10 @@ private enum class Tab(val route: String, val label: String) {
 }
 
 @Composable
-fun AviationDbApp(apiKeyStore: ApiKeyStore) {
+fun AviationDbApp(
+    sessionStore: SessionStore,
+    onSignedOut: () -> Unit,
+) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val destination = backStack?.destination
@@ -77,10 +80,10 @@ fun AviationDbApp(apiKeyStore: ApiKeyStore) {
             startDestination = Tab.Live.route,
             modifier = Modifier.padding(padding),
         ) {
-            composable(Tab.Live.route) { LiveScreen(apiKeyStore) }
-            composable(Tab.Sightings.route) { SightingsScreen(apiKeyStore) }
-            composable(Tab.Explore.route) { ExploreScreen(apiKeyStore) }
-            composable(Tab.Account.route) { AccountScreen(apiKeyStore) }
+            composable(Tab.Live.route) { LiveScreen(sessionStore) }
+            composable(Tab.Sightings.route) { SightingsScreen(sessionStore) }
+            composable(Tab.Explore.route) { ExploreScreen(sessionStore) }
+            composable(Tab.Account.route) { AccountScreen(sessionStore, onSignedOut) }
         }
     }
 }

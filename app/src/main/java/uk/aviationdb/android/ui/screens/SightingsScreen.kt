@@ -27,22 +27,23 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.Sighting
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 
 private const val PAGE = 50
 
 @Composable
-fun SightingsScreen(apiKeyStore: ApiKeyStore) {
+fun SightingsScreen(sessionStore: SessionStore) {
     var items by remember { mutableStateOf<List<Sighting>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var offset by remember { mutableIntStateOf(0) }
     var end by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val hasKey = apiKeyStore.getApiKey() != null
+    val signedIn = sessionStore.isSignedIn()
+    val hasTracking = sessionStore.hasTracking()
 
     suspend fun loadMore() {
-        if (loading || end || !hasKey) return
+        if (loading || end || !signedIn || !hasTracking) return
         loading = true
         error = null
         try {
@@ -67,9 +68,13 @@ fun SightingsScreen(apiKeyStore: ApiKeyStore) {
         }
     }
 
-    LaunchedEffect(hasKey) {
-        if (!hasKey) {
-            error = "Add your API key in Account."
+    LaunchedEffect(signedIn, hasTracking) {
+        if (!signedIn) {
+            error = "Please sign in again."
+            return@LaunchedEffect
+        }
+        if (!hasTracking) {
+            error = "Sightings need an active tracking subscription."
             return@LaunchedEffect
         }
         items = emptyList()

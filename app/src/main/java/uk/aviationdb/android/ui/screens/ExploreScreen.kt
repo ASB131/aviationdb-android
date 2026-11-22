@@ -21,17 +21,17 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 
 @Composable
-fun ExploreScreen(apiKeyStore: ApiKeyStore) {
+fun ExploreScreen(sessionStore: SessionStore) {
     var query by remember { mutableStateOf("") }
     var mode by remember { mutableStateOf(ExploreMode.Aircraft) }
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val hasKey = apiKeyStore.getApiKey() != null
+    val signedIn = sessionStore.isSignedIn()
 
     Column(
         modifier = Modifier
@@ -46,8 +46,8 @@ fun ExploreScreen(apiKeyStore: ApiKeyStore) {
             modifier = Modifier.padding(bottom = 12.dp),
         )
 
-        if (!hasKey) {
-            Text("Add your API key in Account to search.", color = MaterialTheme.colorScheme.error)
+        if (!signedIn) {
+            Text("Please sign in to search.", color = MaterialTheme.colorScheme.error)
             return@Column
         }
 

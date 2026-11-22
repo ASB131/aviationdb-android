@@ -26,19 +26,24 @@ import kotlinx.coroutines.isActive
 import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.ActiveFlight
-import uk.aviationdb.android.data.credentials.ApiKeyStore
+import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.util.LoadState
 
 private const val POLL_MS = 10_000L
 
 @Composable
-fun LiveScreen(apiKeyStore: ApiKeyStore) {
+fun LiveScreen(sessionStore: SessionStore) {
     var state by remember { mutableStateOf<LoadState<List<ActiveFlight>>>(LoadState.Idle) }
-    val hasKey = apiKeyStore.getApiKey() != null
+    val signedIn = sessionStore.isSignedIn()
+    val hasTracking = sessionStore.hasTracking()
 
-    LaunchedEffect(hasKey) {
-        if (!hasKey) {
-            state = LoadState.Error("Add your API key in Account (from aviationdb.uk → Account).")
+    LaunchedEffect(signedIn, hasTracking) {
+        if (!signedIn) {
+            state = LoadState.Error("Please sign in again.")
+            return@LaunchedEffect
+        }
+        if (!hasTracking) {
+            state = LoadState.Error("Live tracking needs an active tracking subscription on your account.")
             return@LaunchedEffect
         }
         while (isActive) {
