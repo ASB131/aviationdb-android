@@ -22,12 +22,37 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Read app version
+        id: version
+        run: |
+          VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          CODE=$(grep 'versionCode' app/build.gradle.kts | head -1 | sed -E 's/.*= ([0-9]+).*/\1/')
+          echo "name=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "App version: $VERSION ($CODE)"
+
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Rename APK with version
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            "app/build/outputs/apk/debug/aviationdb-${{ steps.version.outputs.name }}-${{ steps.version.outputs.code }}-debug.apk"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: aviationdb-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: aviationdb-${{ steps.version.outputs.name }}-debug-apk
+          path: app/build/outputs/apk/debug/aviationdb-*.apk
           if-no-files-found: error
+
+      - name: Job summary
+        run: |
+          {
+            echo "## AviationDB Android build"
+            echo ""
+            echo "- **Version:** ${{ steps.version.outputs.name }} (code ${{ steps.version.outputs.code }})"
+            echo "- **Artifact:** \`aviationdb-${{ steps.version.outputs.name }}-debug-apk\`"
+            echo "- Uninstall the old app, then install the APK inside that artifact (filename includes version)."
+            echo "- In-app: Account or login footer should show **${{ steps.version.outputs.name }}**."
+          } >> "$GITHUB_STEP_SUMMARY"

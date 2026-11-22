@@ -14,7 +14,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,12 +29,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import uk.aviationdb.android.data.ApiProvider
+import uk.aviationdb.android.BuildConfig
 import uk.aviationdb.android.data.api.ProfileResponse
+import uk.aviationdb.android.data.api.TrackingUpdateRequest
 import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
 import uk.aviationdb.android.ui.navigation.LocalOpenMenu
+import uk.aviationdb.android.ui.navigation.openSitePath
 import uk.aviationdb.android.ui.theme.Danger
 
 @Composable
@@ -43,13 +48,19 @@ fun AccountScreen(
     var profile by remember { mutableStateOf<ProfileResponse?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var trackMsg by remember { mutableStateOf<String?>(null) }
+    var latField by remember { mutableStateOf("") }
+    var lonField by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         loading = true
         try {
             profile = ApiProvider.service().profile()
             profile?.let { p ->
+                latField = p.user.trackLat?.toString().orEmpty()
+                lonField = p.user.trackLon?.toString().orEmpty()
                 sessionStore.updateProfile(
                     email = p.user.email,
                     displayName = p.user.displayName,
@@ -105,24 +116,57 @@ fun AccountScreen(
 
                     AdbCard {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Tracking", style = MaterialTheme.typography.titleMedium)
+                            Text("Tracking location", style = MaterialTheme.typography.titleMedium)
                             HorizontalDivider()
-                            val lat = p.user.trackLat
-                            val lon = p.user.trackLon
-                            AdbDetailRow(
-                                "Home coordinates",
-                                if (lat != null && lon != null) {
-                                    "${"%.4f".format(lat)}, ${"%.4f".format(lon)}"
-                                } else {
-                                    "Not set"
-                                },
+                            OutlinedTextField(
+                                value = latField,
+                                onValueChange = { latField = it },
+                                label = { Text("Latitude") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                            )
+                            OutlinedTextField(
+                                value = lonField,
+                                onValueChange = { lonField = it },
+                                label = { Text("Longitude") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
                             )
                             AdbDetailRow("Timezone", p.user.timezone ?: "—")
-                            Text(
-                                "Update tracking location on aviationdb.uk → Account.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            trackMsg?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            val lat = latField.trim().toDoubleOrNull()
+                                            val lon = lonField.trim().toDoubleOrNull()
+                                            if (lat == null || lon == null) {
+                                                trackMsg = "Enter valid latitude and longitude."
+                                                return@launch
+                                            }
+                                            val res = ApiProvider.service().updateTracking(
+                                                TrackingUpdateRequest(lat, lon, p.user.timezone),
+                                            )
+                                            trackMsg = "Location saved."
+                                            sessionStore.updateProfile(
+                                                email = p.user.email,
+                                                displayName = p.user.displayName,
+                                                hasTracking = p.plan.hasTracking == true,
+                                                trackLat = res.trackLat,
+                                                trackLon = res.trackLon,
+                                            )
+                                            profile = profile?.copy(
+                                                user = p.user.copy(trackLat = res.trackLat, trackLon = res.trackLon),
+                                            )
+                                        } catch (e: Exception) {
+                                            trackMsg = e.message ?: "Save failed"
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Save tracking location") }
                         }
                     }
 
@@ -170,15 +214,37 @@ fun AccountScreen(
                                     )
                                 }
                             }
-                            Text(
-                                "Manage payment methods on the website.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        try {
+                                            val url = ApiProvider.service().billingPortal().url
+                                            if (!url.isNullOrBlank()) {
+                                                openSitePath(context, url)
+                                            } else {
+                                                openSitePath(context, "/account?tab=billing")
+                                            }
+                                        } catch (_: Exception) {
+                                            openSitePath(context, "/pricing")
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Manage subscription (Stripe)") }
+                            OutlinedButton(
+                                onClick = { openSitePath(context, "/pricing") },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("View plans & pricing") }
                         }
                     }
                 }
             }
+
+            Text(
+                "App version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             OutlinedButton(
                 onClick = {

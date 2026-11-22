@@ -2,6 +2,7 @@ package uk.aviationdb.android.data.api
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -23,11 +24,29 @@ interface AviationDbApi {
     @GET("me/stats_overview")
     suspend fun statsOverview(): StatsOverviewResponse
 
+    @GET("me/stats_summary")
+    suspend fun statsSummary(@Query("range") range: String? = null): StatsSummaryResponse
+
+    @GET("me/stats_charts")
+    suspend fun statsCharts(
+        @Query("metric") metric: String,
+        @Query("range") range: String? = null,
+    ): StatsChartResponse
+
+    @GET("me/tracking")
+    suspend fun getTracking(): TrackingResponse
+
+    @PATCH("me/tracking")
+    suspend fun updateTracking(@Body body: TrackingUpdateRequest): TrackingResponse
+
+    @POST("me/billing_portal")
+    suspend fun billingPortal(): BillingPortalResponse
+
     @GET("me/aircraft")
     suspend fun meAircraft(
         @Query("registration") registration: String,
-        @Query("limit") limit: Int = 10,
-    ): Map<String, Any?>
+        @Query("limit") limit: Int = 20,
+    ): MeAircraftResponse
 
     @GET("me/sightings")
     suspend fun sightings(
