@@ -12,8 +12,8 @@ android {
         applicationId = "uk.aviationdb.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.5.3"
+        versionCode = 13
+        versionName = "0.5.4"
         buildConfigField("String", "API_BASE_URL", "\"https://aviationdb.uk/api/v1/\"")
         buildConfigField("String", "SITE_BASE_URL", "\"https://aviationdb.uk\"")
     }
@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.moshi)
 
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)

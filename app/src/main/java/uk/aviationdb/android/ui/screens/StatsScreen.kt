@@ -241,21 +241,28 @@ fun StatsScreen(sessionStore: SessionStore) {
                                     )
                                 }
                             }
-                            kpis?.let { k ->
+                            val kpiBlock = kpis
+                            if (kpiBlock != null) {
                                 item {
                                     AdbCard {
                                         Text("Activity in range", style = MaterialTheme.typography.titleMedium)
                                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                                        AdbDetailRow("Avg per active day", "${k.avgPerDay ?: 0}")
-                                        AdbDetailRow("Avg per hour", "${k.avgPerHour ?: 0}")
-                                        AdbDetailRow("With full route", "${k.withRoute ?: 0} (${k.routePct ?: 0}%)")
-                                        AdbDetailRow("Unique airports", nf.format(k.uniqueAirports ?: 0))
-                                        AdbDetailRow("One-time visitors", nf.format(k.singleVisitRegistrations ?: 0))
-                                        val peak = k.peakHour
+                                        AdbDetailRow("Avg per active day", "${kpiBlock.avgPerDay ?: 0}")
+                                        AdbDetailRow("Avg per hour", "${kpiBlock.avgPerHour ?: 0}")
+                                        AdbDetailRow(
+                                            "With full route",
+                                            "${kpiBlock.withRoute ?: 0} (${kpiBlock.routePct ?: 0}%)",
+                                        )
+                                        AdbDetailRow("Unique airports", nf.format(kpiBlock.uniqueAirports ?: 0))
+                                        AdbDetailRow(
+                                            "One-time visitors",
+                                            nf.format(kpiBlock.singleVisitRegistrations ?: 0),
+                                        )
+                                        val peak = kpiBlock.peakHour
                                         if (peak != null) {
                                             AdbDetailRow(
                                                 "Busiest hour",
-                                                "${String.format(Locale.UK, "%02d:00", peak)} · ${k.peakHourCount ?: 0} sightings",
+                                                "${String.format(Locale.UK, "%02d:00", peak)} · ${kpiBlock.peakHourCount ?: 0} sightings",
                                             )
                                         }
                                     }

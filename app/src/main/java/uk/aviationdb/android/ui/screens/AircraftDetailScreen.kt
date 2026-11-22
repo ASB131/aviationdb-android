@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package uk.aviationdb.android.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
