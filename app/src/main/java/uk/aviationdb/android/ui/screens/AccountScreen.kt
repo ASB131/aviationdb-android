@@ -61,11 +61,16 @@ fun AccountScreen(
                     error = null
                     status = null
                     try {
-                        val summary = ApiProvider.service().summary()
+                        val sess = ApiProvider.service().session()
+                        sessionStore.updateProfile(
+                            email = sess.user.email,
+                            displayName = sess.user.displayName,
+                            hasTracking = sess.user.hasTracking == true,
+                        )
                         status = buildString {
-                            append("Connected. ")
-                            summary.activeNow?.let { append("$it overhead now. ") }
-                            summary.totalSightings?.let { append("$it sightings in history window.") }
+                            append("Connected")
+                            sess.user.planName?.let { append(" · $it") }
+                            if (sess.user.hasTracking == true) append(" · tracking active")
                         }.trim()
                     } catch (e: Exception) {
                         error = e.message ?: "Could not reach server"
