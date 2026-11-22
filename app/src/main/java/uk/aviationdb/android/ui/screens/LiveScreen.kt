@@ -1,5 +1,6 @@
 package uk.aviationdb.android.ui.screens
 
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ private const val POLL_MS = 10_000L
 
 private enum class LivePane { Map, List }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LiveScreen(sessionStore: SessionStore) {
     var state by remember { mutableStateOf<LoadState<List<ActiveFlight>>>(LoadState.Idle) }
@@ -85,10 +87,10 @@ fun LiveScreen(sessionStore: SessionStore) {
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Overhead now",
-            subtitle = when (state) {
+            subtitle = when (val st = state) {
                 is LoadState.Success -> "$count aircraft · updates every ${POLL_MS / 1000}s"
                 is LoadState.Loading -> "Updating…"
-                is LoadState.Error -> state.message
+                is LoadState.Error -> st.message
                 else -> "Live ADS-B near your location"
             },
         )

@@ -8,7 +8,11 @@ Native Kotlin app for [AviationDB](https://aviationdb.uk): live overhead trackin
 - AviationDB account (**email + password**, same as the website)
 - Active **tracking** subscription for Live and Sightings
 
-## Build locally
+## Build the APK
+
+**Use GitHub Actions** (recommended). Pushing to `main` runs **Android CI** and uploads a debug APK artifact. Do not run Gradle on the production VPS — Android builds need several GB of RAM and can take the server down.
+
+To build on a dev PC with Android Studio / SDK installed:
 
 ```bash
 ./gradlew assembleDebug
