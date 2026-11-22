@@ -112,33 +112,45 @@ fun StatsScreen(sessionStore: SessionStore) {
             return@LaunchedEffect
         }
         loading = true
+        error = null
+        suspend fun chartRows(metric: String): List<StatsChartRow> = try {
+            ApiProvider.service().statsCharts(metric, range).rows.orEmpty()
+        } catch (_: Exception) {
+            emptyList()
+        }
         try {
             coroutineScope {
                 val api = ApiProvider.service()
-                val s = async { api.statsSummary(range) }
-                val k = async { api.statsKpis(range) }
-                val op = async { api.statsCharts("operators", range) }
-                val ty = async { api.statsCharts("types", range) }
-                val ac = async { api.statsCharts("aircraft", range) }
-                val cs = async { api.statsCharts("callsigns", range) }
-                val ap = async { api.statsCharts("airports", range) }
-                val rt = async { api.statsCharts("routes", range) }
-                val hr = async { api.statsCharts("hourly", range) }
-                val dw = async { api.statsCharts("dow", range) }
-                val wk = async { api.statsCharts("wake", range) }
+                val s = async {
+                    try {
+                        api.statsSummary(range)
+                    } catch (e: Exception) {
+                        error = e.message ?: "Could not load stats"
+                        null
+                    }
+                }
+                val k = async {
+                    try {
+                        api.statsKpis(range)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
                 summary = s.await()
                 kpis = k.await()
-                operators = op.await().rows.orEmpty()
-                types = ty.await().rows.orEmpty()
-                aircraft = ac.await().rows.orEmpty()
-                callsigns = cs.await().rows.orEmpty()
-                airports = ap.await().rows.orEmpty()
-                routes = rt.await().rows.orEmpty()
-                hourly = hr.await().rows.orEmpty()
-                dow = dw.await().rows.orEmpty()
-                wake = wk.await().rows.orEmpty()
+                operators = chartRows("operators")
+                types = chartRows("types")
+                aircraft = chartRows("aircraft")
+                callsigns = chartRows("callsigns")
+                airports = chartRows("airports")
+                routes = chartRows("routes")
+                hourly = chartRows("hourly")
+                dow = chartRows("dow")
+                wake = chartRows("wake")
             }
-            error = null
+            if (summary == null && error == null) {
+                error = "Could not load stats"
+            }
         } catch (e: Exception) {
             error = e.message ?: "Could not load stats"
         } finally {

@@ -12,8 +12,8 @@ android {
         applicationId = "uk.aviationdb.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "0.5.6"
+        versionCode = 16
+        versionName = "0.6.0"
         buildConfigField("String", "API_BASE_URL", "\"https://aviationdb.uk/api/v1/\"")
         buildConfigField("String", "SITE_BASE_URL", "\"https://aviationdb.uk\"")
     }
