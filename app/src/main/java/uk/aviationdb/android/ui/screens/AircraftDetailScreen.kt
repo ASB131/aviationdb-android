@@ -111,14 +111,15 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                         }
                     }
 
-                    d.yourStats?.let { st ->
+                    val yourStats = d.yourStats
+                    if (yourStats != null) {
                         item {
                             AdbCard {
                                 Text("Your logbook (${d.historyDays ?: 0} days)", style = MaterialTheme.typography.titleMedium)
-                                AdbDetailRow("Sightings", (st.totalSightings ?: 0).toString())
-                                AdbDetailRow("Callsigns", (st.uniqueCallsigns ?: 0).toString())
-                                AdbDetailRow("First seen", st.firstSeen ?: "—")
-                                AdbDetailRow("Last seen", st.lastSeen ?: "—")
+                                AdbDetailRow("Sightings", (yourStats.totalSightings ?: 0).toString())
+                                AdbDetailRow("Callsigns", (yourStats.uniqueCallsigns ?: 0).toString())
+                                AdbDetailRow("First seen", yourStats.firstSeen ?: "—")
+                                AdbDetailRow("Last seen", yourStats.lastSeen ?: "—")
                             }
                         }
                     }
