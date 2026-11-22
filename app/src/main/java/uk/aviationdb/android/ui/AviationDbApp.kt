@@ -104,7 +104,7 @@ fun AviationDbApp(
             composable(Tab.Live.route) { LiveScreen(sessionStore, nav) }
             composable(Tab.Sightings.route) { SightingsScreen(sessionStore) }
             composable(Tab.Stats.route) { StatsScreen(sessionStore) }
-            composable(Tab.Browse.route) { BrowseScreen(sessionStore) }
+            composable(Tab.Browse.route) { BrowseScreen(sessionStore, nav) }
             composable(Tab.Account.route) { AccountScreen(sessionStore, onSignedOut) }
             composable(
                 route = "aircraft/{reg}",

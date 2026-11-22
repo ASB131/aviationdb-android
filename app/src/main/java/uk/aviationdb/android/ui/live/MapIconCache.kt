@@ -2,8 +2,11 @@ package uk.aviationdb.android.ui.live
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
 import coil.decode.SvgDecoder
@@ -37,5 +40,23 @@ object MapIconCache {
     fun rotated(source: Bitmap, degrees: Float): Bitmap {
         val matrix = Matrix().apply { postRotate(degrees, source.width / 2f, source.height / 2f) }
         return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+    }
+
+    fun withDropShadow(source: Bitmap): Bitmap {
+        val pad = 8
+        val outW = source.width + pad * 2
+        val outH = source.height + pad * 2
+        val result = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+        val alphaMask = source.extractAlpha()
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            setAlpha(210)
+            maskFilter = BlurMaskFilter(6f, BlurMaskFilter.Blur.NORMAL)
+        }
+        canvas.drawBitmap(alphaMask, pad + 1f, pad + 4f, shadowPaint)
+        alphaMask.recycle()
+        canvas.drawBitmap(source, pad.toFloat(), pad.toFloat(), null)
+        return result
     }
 }

@@ -2,6 +2,7 @@ package uk.aviationdb.android.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -27,6 +29,7 @@ import uk.aviationdb.android.data.api.Sighting
 import uk.aviationdb.android.ui.theme.Border
 import uk.aviationdb.android.ui.theme.Navy
 import uk.aviationdb.android.ui.theme.SkyBlue
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun AdbTopBanner(
@@ -144,7 +147,61 @@ fun SightingRowCard(sighting: Sighting) {
 @Composable
 fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
     AdbCard(modifier = modifier) {
-        Text(value, style = MaterialTheme.typography.headlineSmall, color = SkyBlue)
-        Text(label, style = MaterialTheme.typography.bodySmall)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = SkyBlue)
+        }
+    }
+}
+
+@Composable
+fun AdbDetailRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(top = 2.dp),
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+fun AdbRankedRow(
+    rank: Int,
+    title: String,
+    subtitle: String? = null,
+    count: Int,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            "$rank.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = 8.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            subtitle?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Text(
+            count.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            color = SkyBlue,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }

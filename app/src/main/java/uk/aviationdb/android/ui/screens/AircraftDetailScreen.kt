@@ -22,7 +22,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import uk.aviationdb.android.data.ApiProvider
+import uk.aviationdb.android.data.api.AircraftBrowse
 import uk.aviationdb.android.ui.components.AdbCard
+import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
 import uk.aviationdb.android.tracking.MediaUrls
 
@@ -30,7 +32,7 @@ import uk.aviationdb.android.tracking.MediaUrls
 fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var short by remember { mutableStateOf<Map<String, Any?>?>(null) }
+    var short by remember { mutableStateOf<AircraftBrowse?>(null) }
     var full by remember { mutableStateOf<Map<String, Any?>?>(null) }
     var personal by remember { mutableStateOf<Map<String, Any?>?>(null) }
 
@@ -38,7 +40,7 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
         loading = true
         error = null
         try {
-            short = ApiProvider.service().aircraftShort(registration)
+            short = ApiProvider.service().aircraftShort(registration).aircraft
             full = ApiProvider.service().aircraftFull(registration)
             personal = ApiProvider.service().meAircraft(registration)
         } catch (e: Exception) {
@@ -62,13 +64,11 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
             ) {
-                val imageUrl = sequenceOf(full, short)
-                    .mapNotNull { map ->
-                        map?.get("image_url") as? String
-                            ?: map?.get("livery") as? String
-                    }
-                    .firstOrNull()
-                    ?.let { MediaUrls.absolute(it) }
+                val imageUrl = sequenceOf(
+                    full?.get("image_url") as? String,
+                    full?.get("livery") as? String,
+                    full?.let { (it["aircraft"] as? Map<*, *>)?.get("image_url") as? String },
+                ).filterNotNull().firstOrNull()?.let { MediaUrls.absolute(it) }
 
                 if (imageUrl != null) {
                     AsyncImage(
@@ -81,8 +81,16 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                     )
                 }
 
-                AdbCard {
-                    Text(formatMap(short), style = MaterialTheme.typography.bodyMedium)
+                short?.let { a ->
+                    AdbCard {
+                        Column {
+                            Text(a.registration ?: registration, style = MaterialTheme.typography.titleMedium)
+                            AdbDetailRow("Model", a.aircraftModel ?: "—")
+                            AdbDetailRow("Type", a.aircraftType ?: a.icaoType ?: "—")
+                            AdbDetailRow("Operator", a.operator ?: "—")
+                            AdbDetailRow("ICAO24", a.icao24 ?: "—")
+                        }
+                    }
                 }
 
                 full?.let {

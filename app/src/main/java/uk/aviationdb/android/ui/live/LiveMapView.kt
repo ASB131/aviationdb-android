@@ -28,7 +28,6 @@ import org.maplibre.android.annotations.PolylineOptions
 import uk.aviationdb.android.tracking.AircraftIconResolver
 import uk.aviationdb.android.tracking.FlightMotionEngine
 import uk.aviationdb.android.tracking.MotionPlane
-import android.graphics.Color
 import androidx.core.graphics.toColorInt
 
 private const val CARTO_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
@@ -181,10 +180,9 @@ private class MapHolder {
                 .position(LatLng(p.displayLat, p.displayLon))
                 .title(f.callsign ?: f.registration ?: "Aircraft")
             if (bmp != null) {
-                val iconBmp = if (p.headingDeg != 0.0) {
-                    MapIconCache.rotated(bmp, p.headingDeg.toFloat())
-                } else {
-                    bmp
+                var iconBmp = MapIconCache.withDropShadow(bmp)
+                if (p.headingDeg != 0.0) {
+                    iconBmp = MapIconCache.rotated(iconBmp, p.headingDeg.toFloat())
                 }
                 options.icon(org.maplibre.android.annotations.IconFactory.getInstance(context).fromBitmap(iconBmp))
             }
@@ -194,33 +192,17 @@ private class MapHolder {
                 if (p.key == selectedKey) m.selectMarker(marker)
             }
 
-            if (p.trail.size >= 2) {
-                val trailPts = p.trail.map { LatLng(it.first, it.second) }
+            val trailDraw = engine.trailForDraw(p)
+            if (trailDraw.size >= 2) {
+                val trailPts = trailDraw.map { LatLng(it.first, it.second) }
                 val trailLine = m.addPolyline(
                     PolylineOptions()
                         .addAll(trailPts)
                         .color("#2a6db5".toColorInt())
-                        .width(2f),
+                        .width(3.25f)
+                        .alpha(0.92f),
                 )
                 if (trailLine != null) polylines += trailLine
-            }
-
-            val ahead = engine.predictAhead(p)
-            if (ahead.size >= 2) {
-                val predLine = m.addPolyline(
-                    PolylineOptions()
-                        .addAll(ahead.map { LatLng(it.first, it.second) })
-                        .color(
-                            when (variant) {
-                                "green" -> Color.parseColor("#1b8a3e")
-                                "red" -> Color.parseColor("#c81e4d")
-                                else -> Color.parseColor("#b8860b")
-                            },
-                        )
-                        .width(2f)
-                        .alpha(0.75f),
-                )
-                if (predLine != null) polylines += predLine
             }
         }
 

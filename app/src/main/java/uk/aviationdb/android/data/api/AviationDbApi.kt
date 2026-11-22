@@ -41,7 +41,7 @@ interface AviationDbApi {
     @GET("aircraft")
     suspend fun aircraftShort(
         @Query("aircraft_short") registration: String,
-    ): Map<String, Any?>
+    ): AircraftShortResponse
 
     @GET("aircraft")
     suspend fun aircraftFull(
@@ -51,15 +51,15 @@ interface AviationDbApi {
     @GET("airlines")
     suspend fun airlineShort(
         @Query("airline_short") query: String,
-    ): Map<String, Any?>
+    ): AirlineShortResponse
 
     @GET("airports")
     suspend fun airportLookup(
         @Query("airport_short") ident: String,
-    ): Map<String, Any?>
+    ): AirportShortResponse
 
     @GET("callsigns")
     suspend fun callsignLookup(
         @Query("callsign_search") callsign: String,
-    ): Map<String, Any?>
+    ): CallsignSearchResponse
 }
