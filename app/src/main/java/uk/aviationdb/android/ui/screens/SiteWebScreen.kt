@@ -91,6 +91,21 @@ fun SiteWebScreen(
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 loading = false
                                 view?.title?.takeIf { it.isNotBlank() }?.let { pageTitle = it }
+                                view?.evaluateJavascript(
+                                    """
+                                    (function(){
+                                      document.body.classList.add('app-embed');
+                                      var id='adb-app-embed-css';
+                                      if(!document.getElementById(id)){
+                                        var s=document.createElement('style');
+                                        s.id=id;
+                                        s.textContent='body.app-embed #site-header,body.app-embed #site-theme-toggle,body.app-embed .header-divider,body.app-embed #mob-menu,body.app-embed #mob-hamburger-btn,body.app-embed #site-footer,body.app-embed .skip-link{display:none!important}body.app-embed main,body.app-embed #main-content{margin-top:0!important;padding-top:8px!important}';
+                                        document.head.appendChild(s);
+                                      }
+                                    })();
+                                    """.trimIndent(),
+                                    null,
+                                )
                             }
 
                             override fun shouldOverrideUrlLoading(

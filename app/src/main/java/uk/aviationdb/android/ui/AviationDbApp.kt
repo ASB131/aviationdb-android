@@ -130,11 +130,11 @@ fun AviationDbApp(
                     }
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
                     Text(
-                        "Website (in-app, signed in)",
+                        "More",
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 4.dp),
                     )
-                    SiteDestinations.all.forEach { dest ->
+                    SiteDestinations.menu.forEach { dest ->
                         val destRoute = SiteDestinations.routeFor(dest.id)
                         val selected = route == destRoute
                         NavigationDrawerItem(
@@ -163,7 +163,17 @@ fun AviationDbApp(
                 composable(AppSection.Sightings.route) { SightingsScreen(sessionStore) }
                 composable(AppSection.Stats.route) { StatsScreen(sessionStore) }
                 composable(AppSection.Browse.route) { BrowseScreen(sessionStore, nav) }
-                composable(AppSection.Account.route) { AccountScreen(sessionStore, onSignedOut) }
+                composable(AppSection.Account.route) {
+                    AccountScreen(
+                        sessionStore = sessionStore,
+                        onSignedOut = onSignedOut,
+                        onOpenPricing = {
+                            nav.navigate(SiteDestinations.routeFor("pricing")) {
+                                launchSingleTop = true
+                            }
+                        },
+                    )
+                }
 
                 composable(
                     route = "${SiteDestinations.ROUTE_PREFIX}/{siteId}",

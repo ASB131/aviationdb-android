@@ -19,6 +19,7 @@ data class StatsLeader(
     val registration: String?,
     val operator: String?,
     val c: Int?,
+    val media: Map<String, Any?>? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -72,6 +73,7 @@ data class StatsChartRow(
     val registration: String?,
     val c: Int?,
     val t: String?,
+    val media: Map<String, Any?>? = null,
 )
 
 @JsonClass(generateAdapter = true)

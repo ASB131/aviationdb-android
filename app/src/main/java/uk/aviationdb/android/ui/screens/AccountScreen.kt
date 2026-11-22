@@ -44,6 +44,7 @@ import uk.aviationdb.android.ui.theme.Danger
 fun AccountScreen(
     sessionStore: SessionStore,
     onSignedOut: () -> Unit,
+    onOpenPricing: (() -> Unit)? = null,
 ) {
     var profile by remember { mutableStateOf<ProfileResponse?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -198,7 +199,13 @@ fun AccountScreen(
                                 modifier = Modifier.fillMaxWidth(),
                             ) { Text("Manage subscription (Stripe)") }
                             OutlinedButton(
-                                onClick = { openSitePath(context, "/pricing") },
+                                onClick = {
+                                    if (onOpenPricing != null) {
+                                        onOpenPricing()
+                                    } else {
+                                        openSitePath(context, "/pricing")
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                             ) { Text("View plans & pricing") }
                         }
