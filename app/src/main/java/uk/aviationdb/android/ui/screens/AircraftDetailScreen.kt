@@ -26,6 +26,7 @@ import uk.aviationdb.android.data.api.AircraftBrowse
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.tracking.MediaUrls
 
 @Composable
@@ -55,6 +56,7 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
             title = registration.uppercase(),
             subtitle = "Aircraft profile",
             onBackClick = onBack,
+            onMenuClick = LocalOpenMenu.current,
         )
 
         when {

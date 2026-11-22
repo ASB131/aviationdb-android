@@ -55,25 +55,29 @@ fun AdbTopBanner(
                 .padding(horizontal = 8.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            when {
-                onBackClick != null -> {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                    }
+            if (onBackClick != null) {
+                IconButton(onClick = onBackClick) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
-                onMenuClick != null -> {
-                    IconButton(onClick = onMenuClick) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
-                    }
-                }
+            } else {
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
             }
-            Column(modifier = Modifier.weight(1f).padding(start = if (onBackClick != null || onMenuClick != null) 0.dp else 8.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 4.dp),
+            ) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
                 subtitle?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = Color(0xFFC8D0DB))
                 }
             }
             trailing?.invoke()
+            if (onMenuClick != null) {
+                IconButton(onClick = onMenuClick) {
+                    Icon(Icons.Default.Menu, contentDescription = "Pages", tint = Color.White)
+                }
+            }
         }
     }
 }
