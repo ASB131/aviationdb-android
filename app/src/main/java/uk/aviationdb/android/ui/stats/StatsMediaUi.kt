@@ -21,7 +21,6 @@ import coil.compose.AsyncImage
 import org.json.JSONArray
 import uk.aviationdb.android.data.api.StatsChartRow
 import uk.aviationdb.android.tracking.MediaUrls
-import uk.aviationdb.android.ui.components.AdbRankedRow
 import uk.aviationdb.android.ui.util.brandAccentColor
 
 fun statsMediaImageUrl(media: Map<String, Any?>?): String? {

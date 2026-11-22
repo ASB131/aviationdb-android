@@ -273,25 +273,27 @@ fun StatsScreen(sessionStore: SessionStore) {
                                 )
                                 AdbDetailRow("Current streak", "${cur?.currentStreak ?: 0} days")
                                 AdbDetailRow("Longest streak", "${cur?.longestStreak ?: 0} days")
-                                val op = s.leadingOperator
-                                val opName = op?.operator ?: op?.label
-                                if (!opName.isNullOrBlank()) {
-                                    Text(
-                                        "Top operator",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        modifier = Modifier.padding(top = 8.dp),
-                                    )
-                                    StatsBrandedRankedRow(1, opName, op.c ?: 0, op.media)
+                                s.leadingOperator?.let { leader ->
+                                    val opName = leader.operator ?: leader.label
+                                    if (!opName.isNullOrBlank()) {
+                                        Text(
+                                            "Top operator",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            modifier = Modifier.padding(top = 8.dp),
+                                        )
+                                        StatsBrandedRankedRow(1, opName, leader.c ?: 0, leader.media)
+                                    }
                                 }
-                                val ac = s.leadingAircraft
-                                val acName = ac?.registration ?: ac?.label
-                                if (!acName.isNullOrBlank()) {
-                                    Text(
-                                        "Top aircraft",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        modifier = Modifier.padding(top = 8.dp),
-                                    )
-                                    StatsBrandedRankedRow(1, acName, ac.c ?: 0, ac.media)
+                                s.leadingAircraft?.let { leader ->
+                                    val acName = leader.registration ?: leader.label
+                                    if (!acName.isNullOrBlank()) {
+                                        Text(
+                                            "Top aircraft",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            modifier = Modifier.padding(top = 8.dp),
+                                        )
+                                        StatsBrandedRankedRow(1, acName, leader.c ?: 0, leader.media)
+                                    }
                                 }
                             }
                         }

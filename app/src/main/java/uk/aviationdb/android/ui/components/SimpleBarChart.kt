@@ -45,15 +45,15 @@ fun SimpleBarChart(
                 .padding(top = 8.dp),
         ) {
             val barCount = slice.size.coerceAtLeast(1)
-            val gap = width * 0.02f
-            val barWidth = (width - gap * (barCount + 1)) / barCount
+            val gap = size.width * 0.02f
+            val barWidth = (size.width - gap * (barCount + 1)) / barCount
             slice.forEachIndexed { index, row ->
                 val value = (row.c ?: 0).toFloat()
-                val barHeight = (value / max) * height * 0.92f
+                val barHeight = (value / max) * size.height * 0.92f
                 val left = gap + index * (barWidth + gap)
                 drawRoundRect(
                     color = barColor,
-                    topLeft = Offset(left, height - barHeight),
+                    topLeft = Offset(left, size.height - barHeight),
                     size = Size(barWidth, barHeight),
                     cornerRadius = CornerRadius(4f, 4f),
                 )
