@@ -1,6 +1,7 @@
 package uk.aviationdb.android.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,13 +9,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -27,15 +33,25 @@ import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.ActiveFlight
 import uk.aviationdb.android.data.credentials.SessionStore
+import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.components.FlightRowCard
+import uk.aviationdb.android.ui.live.LiveMapView
+import uk.aviationdb.android.ui.live.flightKey
 import uk.aviationdb.android.ui.util.LoadState
 
 private const val POLL_MS = 10_000L
 
+private enum class LivePane { Map, List }
+
 @Composable
 fun LiveScreen(sessionStore: SessionStore) {
     var state by remember { mutableStateOf<LoadState<List<ActiveFlight>>>(LoadState.Idle) }
+    var pane by remember { mutableIntStateOf(LivePane.Map.ordinal) }
+    var selectedKey by remember { mutableStateOf<String?>(null) }
     val signedIn = sessionStore.isSignedIn()
     val hasTracking = sessionStore.hasTracking()
+    val homeLat = sessionStore.getTrackLat()
+    val homeLon = sessionStore.getTrackLon()
 
     LaunchedEffect(signedIn, hasTracking) {
         if (!signedIn) {
@@ -43,17 +59,17 @@ fun LiveScreen(sessionStore: SessionStore) {
             return@LaunchedEffect
         }
         if (!hasTracking) {
-            state = LoadState.Error("Live tracking needs an active tracking subscription on your account.")
+            state = LoadState.Error("Live tracking needs an active subscription. Manage plans at aviationdb.uk.")
             return@LaunchedEffect
         }
         while (isActive) {
-            state = LoadState.Loading
+            if (state !is LoadState.Success) state = LoadState.Loading
             state = try {
                 val body = ApiProvider.service().activeFlights()
                 LoadState.Success(body.flights)
             } catch (e: HttpException) {
                 val msg = when (e.code()) {
-                    401, 403 -> "API key invalid or tracking subscription required."
+                    401, 403 -> "Session expired or tracking subscription required."
                     else -> "HTTP ${e.code()}"
                 }
                 LoadState.Error(msg)
@@ -64,75 +80,109 @@ fun LiveScreen(sessionStore: SessionStore) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
-        Text("Live overhead", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "Refreshes every ${POLL_MS / 1000}s · same feed as the site active view",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(bottom = 12.dp),
+    val count = (state as? LoadState.Success)?.data?.size ?: 0
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        AdbTopBanner(
+            title = "Overhead now",
+            subtitle = when (state) {
+                is LoadState.Success -> "$count aircraft · updates every ${POLL_MS / 1000}s"
+                is LoadState.Loading -> "Updating…"
+                is LoadState.Error -> state.message
+                else -> "Live ADS-B near your location"
+            },
         )
+
+        PrimaryTabRow(selectedTabIndex = pane) {
+            Tab(
+                selected = pane == LivePane.Map.ordinal,
+                onClick = { pane = LivePane.Map.ordinal },
+                text = { Text("Map") },
+                icon = { androidx.compose.material3.Icon(Icons.Default.Map, null) },
+            )
+            Tab(
+                selected = pane == LivePane.List.ordinal,
+                onClick = { pane = LivePane.List.ordinal },
+                text = { Text("List") },
+                icon = { androidx.compose.material3.Icon(Icons.AutoMirrored.Filled.List, null) },
+            )
+        }
 
         when (val s = state) {
             LoadState.Idle, LoadState.Loading -> {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
 
             is LoadState.Error -> {
-                Text(s.message, color = MaterialTheme.colorScheme.error)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(s.message, color = MaterialTheme.colorScheme.error)
+                }
             }
 
             is LoadState.Success -> {
-                if (s.data.isEmpty()) {
-                    Text("No aircraft in range right now.")
+                if (pane == LivePane.Map.ordinal) {
+                    if (s.data.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Nothing overhead — map will show aircraft when they appear.")
+                        }
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            LiveMapView(
+                                flights = s.data,
+                                homeLat = homeLat,
+                                homeLon = homeLon,
+                                selectedKey = selectedKey,
+                                onMarkerClick = { selectedKey = flightKey(it) },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                            selectedKey?.let { key ->
+                                val f = s.data.firstOrNull { flightKey(it) == key }
+                                if (f != null) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .align(Alignment.BottomCenter)
+                                            .padding(12.dp),
+                                    ) {
+                                        FlightRowCard(flight = f, selected = true)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(s.data, key = { it.icao24 ?: it.callsign ?: it.registration ?: it.hashCode() }) { f ->
-                            FlightCard(f)
+                    if (s.data.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("No aircraft in range.")
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            items(s.data, key = { flightKey(it) }) { f ->
+                                FlightRowCard(
+                                    flight = f,
+                                    selected = flightKey(f) == selectedKey,
+                                    onClick = { selectedKey = flightKey(f) },
+                                )
+                            }
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun FlightCard(f: ActiveFlight) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            val title = listOfNotNull(f.callsign, f.registration).joinToString(" · ").ifBlank { "Unknown" }
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            val route = listOfNotNull(f.originIcao, f.destIcao).joinToString(" → ")
-            if (route.isNotBlank()) {
-                Text(route, style = MaterialTheme.typography.bodyMedium)
-            }
-            val meta = buildList {
-                f.airline?.let { add(it) }
-                f.aircraftType?.let { add(it) }
-                if (f.altitude != null) add("${f.altitude} ft")
-                if (f.speed != null) add("${f.speed} kts")
-            }.joinToString(" · ")
-            if (meta.isNotBlank()) {
-                Text(meta, style = MaterialTheme.typography.bodySmall)
-            }
-            if (f.lat != null && f.lon != null) {
-                Text(
-                    "Position ${"%.4f".format(f.lat)}, ${"%.4f".format(f.lon)}",
-                    style = MaterialTheme.typography.labelSmall,
-                )
             }
         }
     }

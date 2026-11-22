@@ -62,5 +62,11 @@ data class SummaryResponse(
     @Json(name = "active_now") val activeNow: Int?,
     @Json(name = "total_sightings") val totalSightings: Int?,
     @Json(name = "unique_registrations") val uniqueRegistrations: Int?,
+    val plan: SummaryPlan?,
+)
+
+@JsonClass(generateAdapter = true)
+data class SummaryPlan(
+    val name: String?,
     @Json(name = "history_days") val historyDays: Int?,
 )

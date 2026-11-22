@@ -3,12 +3,10 @@ package uk.aviationdb.android.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +26,8 @@ import retrofit2.HttpException
 import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.Sighting
 import uk.aviationdb.android.data.credentials.SessionStore
+import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.components.SightingRowCard
 
 private const val PAGE = 50
 
@@ -58,7 +58,7 @@ fun SightingsScreen(sessionStore: SessionStore) {
             }
         } catch (e: HttpException) {
             error = when (e.code()) {
-                401, 403 -> "API key invalid or subscription required."
+                401, 403 -> "Session expired or subscription required."
                 else -> "HTTP ${e.code()}"
             }
         } catch (e: Exception) {
@@ -94,15 +94,14 @@ fun SightingsScreen(sessionStore: SessionStore) {
             }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-    ) {
-        Text("Your sightings", style = MaterialTheme.typography.headlineSmall)
+    Column(modifier = Modifier.fillMaxSize()) {
+        AdbTopBanner(
+            title = "Sightings",
+            subtitle = if (items.isNotEmpty()) "${items.size} loaded" else "Your rolling history",
+        )
 
         error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(vertical = 8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
         }
 
         if (items.isEmpty() && loading) {
@@ -116,39 +115,21 @@ fun SightingsScreen(sessionStore: SessionStore) {
         } else {
             LazyColumn(
                 state = listState,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp),
             ) {
                 items(items, key = { "${it.registration}-${it.seenAt}-${it.callsign}" }) { s ->
-                    SightingCard(s)
+                    SightingRowCard(sighting = s)
                 }
             }
         }
 
         if (loading && items.isNotEmpty()) {
-            Text("Loading more…", style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-@Composable
-private fun SightingCard(s: Sighting) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                listOfNotNull(s.registration, s.callsign).joinToString(" · ").ifBlank { "Sighting" },
-                style = MaterialTheme.typography.titleMedium,
+                "Loading more…",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(16.dp),
             )
-            s.seenAt?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
-            val line = buildList {
-                s.operator?.let { add(it) }
-                s.aircraftType?.let { add(it) }
-                val route = listOfNotNull(s.routeFrom, s.routeTo).joinToString(" → ")
-                if (route.isNotBlank()) add(route)
-                s.regionLabel?.let { add(it) }
-            }.joinToString(" · ")
-            if (line.isNotBlank()) {
-                Text(line, style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -21,6 +22,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.credentials.SessionStore
+import uk.aviationdb.android.ui.components.AdbCard
+import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.theme.Danger
 
 @Composable
 fun AccountScreen(
@@ -39,75 +43,86 @@ fun AccountScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
             .verticalScroll(rememberScrollState()),
     ) {
-        Text("Account", style = MaterialTheme.typography.headlineSmall)
-        if (name.isNotBlank()) {
-            Text(name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        }
-        Text(email, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
-        Text(
-            if (tracking) "Tracking plan active" else "No active tracking plan — Live and Sightings need a tracking subscription",
-            style = MaterialTheme.typography.bodySmall,
-            color = if (tracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+        AdbTopBanner(
+            title = name.ifBlank { "Account" },
+            subtitle = email,
         )
 
-        OutlinedButton(
-            onClick = {
-                scope.launch {
-                    busy = true
-                    error = null
-                    status = null
-                    try {
-                        val sess = ApiProvider.service().session()
-                        sessionStore.updateProfile(
-                            email = sess.user.email,
-                            displayName = sess.user.displayName,
-                            hasTracking = sess.user.hasTracking == true,
-                        )
-                        status = buildString {
-                            append("Connected")
-                            sess.user.planName?.let { append(" · $it") }
-                            if (sess.user.hasTracking == true) append(" · tracking active")
-                        }.trim()
-                    } catch (e: Exception) {
-                        error = e.message ?: "Could not reach server"
-                    } finally {
-                        busy = false
-                    }
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !busy,
-        ) { Text("Refresh status") }
+        Column(modifier = Modifier.padding(16.dp)) {
+            AdbCard {
+                Text(
+                    if (tracking) "Tracking plan active" else "No tracking plan on this account",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (tracking) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    "Subscriptions, tracking location, API keys, and data export are managed on aviationdb.uk → Account.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
 
-        Button(
-            onClick = {
-                scope.launch {
-                    busy = true
-                    try {
-                        runCatching { ApiProvider.service().logout() }
-                    } finally {
-                        sessionStore.clear()
-                        ApiProvider.reset()
-                        busy = false
-                        onSignedOut()
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        error = null
+                        status = null
+                        try {
+                            val sess = ApiProvider.service().session()
+                            sessionStore.updateProfile(
+                                email = sess.user.email,
+                                displayName = sess.user.displayName,
+                                hasTracking = sess.user.hasTracking == true,
+                                trackLat = sess.user.trackLat,
+                                trackLon = sess.user.trackLon,
+                            )
+                            status = buildString {
+                                append("Connected")
+                                sess.user.planName?.let { append(" · $it") }
+                            }.trim()
+                        } catch (e: Exception) {
+                            error = e.message ?: "Could not reach server"
+                        } finally {
+                            busy = false
+                        }
                     }
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp),
-            enabled = !busy,
-        ) { Text("Sign out") }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                enabled = !busy,
+            ) { Text("Refresh from server") }
 
-        status?.let {
-            Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))
-        }
-        error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+            Button(
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        try {
+                            runCatching { ApiProvider.service().logout() }
+                        } finally {
+                            sessionStore.clear()
+                            ApiProvider.reset()
+                            busy = false
+                            onSignedOut()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(containerColor = Danger),
+            ) { Text("Sign out") }
+
+            status?.let {
+                Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp))
+            }
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
+            }
         }
     }
 }

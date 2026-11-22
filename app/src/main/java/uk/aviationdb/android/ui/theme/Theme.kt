@@ -7,31 +7,42 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val Sky = Color(0xFF5BC0EB)
-private val Navy = Color(0xFF0F2A3D)
-private val Slate = Color(0xFF1B3A4B)
-
-private val DarkColors = darkColorScheme(
-    primary = Sky,
-    onPrimary = Navy,
-    background = Color(0xFF0B1620),
-    surface = Slate,
-    onBackground = Color(0xFFE8F1F5),
-    onSurface = Color(0xFFE8F1F5),
+private val LightScheme = lightColorScheme(
+    primary = SkyBlue,
+    onPrimary = Color.White,
+    primaryContainer = Stripe,
+    secondary = Navy,
+    onSecondary = Color.White,
+    background = Canvas,
+    onBackground = TextPrimary,
+    surface = Surface,
+    onSurface = TextPrimary,
+    surfaceVariant = Stripe,
+    onSurfaceVariant = TextMuted,
+    outline = Border,
+    error = Danger,
+    tertiary = Success,
 )
 
-private val LightColors = lightColorScheme(
-    primary = Navy,
-    onPrimary = Color.White,
-    secondary = Sky,
-    background = Color(0xFFF4F8FB),
-    surface = Color.White,
-    onBackground = Navy,
-    onSurface = Navy,
+private val DarkScheme = darkColorScheme(
+    primary = Color(0xFF6BA3E0),
+    onPrimary = Navy,
+    background = Color(0xFF121820),
+    surface = Navy,
+    onSurface = Color(0xFFE8ECF1),
+    onSurfaceVariant = Color(0xFF9AA5B4),
+    outline = NavyElevated,
 )
 
 @Composable
-fun AviationDbTheme(content: @Composable () -> Unit) {
-    val colors = if (isSystemInDarkTheme()) DarkColors else LightColors
-    MaterialTheme(colorScheme = colors, content = content)
+fun AviationDbTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val scheme = if (darkTheme) DarkScheme else LightScheme
+    MaterialTheme(
+        colorScheme = scheme,
+        typography = AviationTypography,
+        content = content,
+    )
 }

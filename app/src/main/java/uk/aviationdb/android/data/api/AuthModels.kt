@@ -26,6 +26,8 @@ data class AuthUser(
     @Json(name = "display_name") val displayName: String?,
     @Json(name = "has_tracking") val hasTracking: Boolean?,
     @Json(name = "plan_name") val planName: String?,
+    @Json(name = "track_lat") val trackLat: Double?,
+    @Json(name = "track_lon") val trackLon: Double?,
 )
 
 @JsonClass(generateAdapter = true)

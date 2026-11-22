@@ -1,0 +1,145 @@
+package uk.aviationdb.android.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import uk.aviationdb.android.data.api.ActiveFlight
+import uk.aviationdb.android.data.api.Sighting
+import uk.aviationdb.android.ui.theme.Border
+import uk.aviationdb.android.ui.theme.Navy
+import uk.aviationdb.android.ui.theme.SkyBlue
+
+@Composable
+fun AdbTopBanner(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    trailing: @Composable (() -> Unit)? = null,
+) {
+    Surface(
+        color = Navy,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
+                subtitle?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = Color(0xFFC8D0DB))
+                }
+            }
+            trailing?.invoke()
+        }
+    }
+}
+
+@Composable
+fun AdbCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val shape = RoundedCornerShape(10.dp)
+    val clickMod = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    Card(
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, Border, shape)
+            .then(clickMod),
+    ) {
+        Box(modifier = Modifier.padding(14.dp)) { content() }
+    }
+}
+
+@Composable
+fun FlightRowCard(
+    flight: ActiveFlight,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    val accent = if (selected) SkyBlue else Color.Transparent
+    AdbCard(onClick = onClick) {
+        Row {
+            Box(
+                modifier = Modifier
+                    .padding(end = 10.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(accent.copy(alpha = if (selected) 0.15f else 0f))
+                    .padding(horizontal = 4.dp),
+            ) {
+                Column {
+                    val title = listOfNotNull(flight.callsign, flight.registration)
+                        .joinToString(" · ")
+                        .ifBlank { "Unknown" }
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    val route = listOfNotNull(flight.originIcao, flight.destIcao).joinToString(" → ")
+                    if (route.isNotBlank()) {
+                        Text(route, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    val meta = buildList {
+                        flight.airline?.let { add(it) }
+                        flight.aircraftType?.let { add(it) }
+                        if (flight.altitude != null) add("${flight.altitude} ft")
+                        if (flight.speed != null) add("${flight.speed} kt")
+                    }.joinToString(" · ")
+                    if (meta.isNotBlank()) {
+                        Text(meta, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SightingRowCard(sighting: Sighting) {
+    AdbCard {
+        Column {
+            Text(
+                listOfNotNull(sighting.registration, sighting.callsign).joinToString(" · ").ifBlank { "Sighting" },
+                style = MaterialTheme.typography.titleMedium,
+            )
+            sighting.seenAt?.let {
+                Text(it, style = MaterialTheme.typography.labelSmall)
+            }
+            val line = buildList {
+                sighting.operator?.let { add(it) }
+                sighting.aircraftType?.let { add(it) }
+                val route = listOfNotNull(sighting.routeFrom, sighting.routeTo).joinToString(" → ")
+                if (route.isNotBlank()) add(route)
+            }.joinToString(" · ")
+            if (line.isNotBlank()) {
+                Text(line, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+@Composable
+fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+    AdbCard(modifier = modifier) {
+        Text(value, style = MaterialTheme.typography.headlineSmall, color = SkyBlue)
+        Text(label, style = MaterialTheme.typography.bodySmall)
+    }
+}

@@ -3,3 +3,5 @@
 -keep class com.squareup.moshi.** { *; }
 -keep @com.squareup.moshi.JsonClass class * { *; }
 -keep class uk.aviationdb.android.data.api.** { *; }
+-dontwarn org.maplibre.**
+-keep class org.maplibre.** { *; }
