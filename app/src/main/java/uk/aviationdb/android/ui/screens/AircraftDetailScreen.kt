@@ -1,18 +1,17 @@
-@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-
 package uk.aviationdb.android.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -93,7 +92,32 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                 ) {
                     if (galleryUrls.isNotEmpty()) {
                         item {
-                            AircraftPhotoGallery(galleryUrls)
+                            Column(Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    galleryUrls.forEach { url ->
+                                        AsyncImage(
+                                            model = url,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(width = 280.dp, height = 190.dp)
+                                                .clip(RoundedCornerShape(12.dp)),
+                                            contentScale = ContentScale.Fit,
+                                        )
+                                    }
+                                }
+                                if (galleryUrls.size > 1) {
+                                    Text(
+                                        "Swipe sideways for more photos",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(top = 6.dp),
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -162,36 +186,6 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
                     }
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun AircraftPhotoGallery(urls: List<String>) {
-    val pagerState = rememberPagerState(pageCount = { urls.size })
-    Column(modifier = Modifier.fillMaxWidth()) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(210.dp),
-        ) { page ->
-            AsyncImage(
-                model = urls[page],
-                contentDescription = null,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Fit,
-            )
-        }
-        if (urls.size > 1) {
-            Text(
-                "Swipe for livery and spotting photos · ${pagerState.currentPage + 1} of ${urls.size}",
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 6.dp),
-            )
         }
     }
 }

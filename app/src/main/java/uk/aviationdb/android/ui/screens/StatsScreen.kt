@@ -10,12 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -200,19 +199,18 @@ fun StatsScreen(sessionStore: SessionStore) {
                     }
 
                     item {
-                        ScrollableTabRow(selectedTabIndex = sectionTab, edgePadding = 0.dp) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatsSection.entries.forEachIndexed { idx, sec ->
-                                Tab(
+                                FilterChip(
                                     selected = sectionTab == idx,
                                     onClick = { sectionTab = idx },
-                                    text = { Text(sec.title, style = MaterialTheme.typography.labelLarge) },
+                                    label = { Text(sec.title) },
                                 )
                             }
                         }
                     }
 
-                    when (section) {
-                        StatsSection.Overview -> {
+                    if (section == StatsSection.Overview) {
                             item {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                                     StatTile(
@@ -298,60 +296,59 @@ fun StatsScreen(sessionStore: SessionStore) {
                                     )
                                 }
                             }
-                        }
+                    }
 
-                        StatsSection.Aircraft -> {
-                            item { rankedCard("Top operators", operators) }
-                            item { rankedCard("Aircraft types", types) }
-                            item { rankedCard("Top registrations", aircraft) }
-                            item { rankedCard("Top callsigns", callsigns) }
-                            item {
-                                AdbCard {
-                                    SimpleBarChart(
-                                        title = "Wake turbulence mix",
-                                        rows = wake,
-                                        maxBars = 8,
-                                        labelTransform = { wakeLabel(it.label) },
-                                    )
-                                }
+                    if (section == StatsSection.Aircraft) {
+                        statsRankedCard("Top operators", operators)
+                        statsRankedCard("Aircraft types", types)
+                        statsRankedCard("Top registrations", aircraft)
+                        statsRankedCard("Top callsigns", callsigns)
+                        item {
+                            AdbCard {
+                                SimpleBarChart(
+                                    title = "Wake turbulence mix",
+                                    rows = wake,
+                                    maxBars = 8,
+                                    labelTransform = { wakeLabel(it.label) },
+                                )
                             }
                         }
+                    }
 
-                        StatsSection.Airports -> {
-                            item { rankedCard("Busiest airports", airports) }
-                            item { rankedCard("Top routes", routes) }
+                    if (section == StatsSection.Airports) {
+                        statsRankedCard("Busiest airports", airports)
+                        statsRankedCard("Top routes", routes)
+                    }
+
+                    if (section == StatsSection.Patterns) {
+                        item {
+                            AdbCard {
+                                SimpleBarChart(
+                                    title = "By time of day (local)",
+                                    rows = hourly,
+                                    maxBars = 24,
+                                    labelTransform = { it.label ?: "?" },
+                                )
+                            }
                         }
-
-                        StatsSection.Patterns -> {
-                            item {
-                                AdbCard {
-                                    SimpleBarChart(
-                                        title = "By time of day (local)",
-                                        rows = hourly,
-                                        maxBars = 24,
-                                        labelTransform = { it.label ?: "?" },
-                                    )
-                                }
+                        item {
+                            AdbCard {
+                                SimpleBarChart(
+                                    title = "By day of week",
+                                    rows = dow,
+                                    maxBars = 7,
+                                    labelTransform = { dowLabel(it) },
+                                )
                             }
-                            item {
-                                AdbCard {
-                                    SimpleBarChart(
-                                        title = "By day of week",
-                                        rows = dow,
-                                        maxBars = 7,
-                                        labelTransform = { dowLabel(it) },
-                                    )
-                                }
-                            }
-                            item {
-                                AdbCard {
-                                    SimpleBarChart(
-                                        title = seriesTitle ?: "Activity timeline",
-                                        rows = series,
-                                        maxBars = 40,
-                                        labelTransform = { it.t?.take(10) ?: chartLabel(it) },
-                                    )
-                                }
+                        }
+                        item {
+                            AdbCard {
+                                SimpleBarChart(
+                                    title = seriesTitle ?: "Activity timeline",
+                                    rows = series,
+                                    maxBars = 40,
+                                    labelTransform = { it.t?.take(10) ?: chartLabel(it) },
+                                )
                             }
                         }
                     }
@@ -361,16 +358,17 @@ fun StatsScreen(sessionStore: SessionStore) {
     }
 }
 
-@Composable
-private fun rankedCard(title: String, rows: List<StatsChartRow>) {
-    AdbCard {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        rows.forEachIndexed { idx, row ->
-            AdbRankedRow(rank = idx + 1, title = chartLabel(row), count = row.c ?: 0)
-        }
-        if (rows.isEmpty()) {
-            Text("No data in this range.", style = MaterialTheme.typography.bodySmall)
+private fun LazyListScope.statsRankedCard(title: String, rows: List<StatsChartRow>) {
+    item {
+        AdbCard {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            rows.forEachIndexed { idx, row ->
+                AdbRankedRow(rank = idx + 1, title = chartLabel(row), count = row.c ?: 0)
+            }
+            if (rows.isEmpty()) {
+                Text("No data in this range.", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

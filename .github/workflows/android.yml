@@ -32,7 +32,16 @@ jobs:
           echo "App version: $VERSION ($CODE)"
 
       - name: Assemble debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee assemble.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "::group::Gradle failure (last 120 lines)"
+            tail -n 120 assemble.log
+            echo "::endgroup::"
+            exit "$status"
+          fi
 
       - name: Rename APK with version
         run: |
