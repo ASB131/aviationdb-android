@@ -26,6 +26,7 @@ import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbRankedRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.ui.components.StatTile
 import java.text.NumberFormat
 import java.util.Locale
@@ -63,6 +64,7 @@ fun StatsScreen(sessionStore: SessionStore) {
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Your stats",
+            onMenuClick = LocalOpenMenu.current,
             subtitle = stats?.planName?.let { "$it · ${stats?.historyDays ?: 0} day window" }
                 ?: "Personal dashboard",
         )

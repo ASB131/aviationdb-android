@@ -4,6 +4,13 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class AircraftSearchResponse(
+    val query: String?,
+    val total: Int?,
+    val results: List<AircraftBrowse>?,
+)
+
+@JsonClass(generateAdapter = true)
 data class AircraftShortResponse(
     val aircraft: AircraftBrowse?,
 )

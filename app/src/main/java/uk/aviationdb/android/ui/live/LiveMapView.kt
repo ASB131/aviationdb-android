@@ -3,10 +3,7 @@ package uk.aviationdb.android.ui.live
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -23,16 +20,15 @@ import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.annotations.Marker
 import org.maplibre.android.annotations.MarkerOptions
-import org.maplibre.android.annotations.Polyline
-import org.maplibre.android.annotations.PolylineOptions
 import uk.aviationdb.android.tracking.AircraftIconResolver
 import uk.aviationdb.android.tracking.FlightMotionEngine
 import uk.aviationdb.android.tracking.MotionPlane
-import androidx.core.graphics.toColorInt
+import kotlin.math.abs
 
 private const val CARTO_STYLE = "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json"
 private const val HOME_ZOOM = 11.0
 private const val FIT_PADDING = 100
+private const val ICON_PX = 92
 
 @Composable
 fun LiveMapView(
@@ -40,7 +36,8 @@ fun LiveMapView(
     homeLat: Double?,
     homeLon: Double?,
     selectedKey: String?,
-    refreshTick: Long,
+    syncTick: Long,
+    positionTick: Long,
     scope: CoroutineScope,
     onMarkerClick: (MotionPlane) -> Unit,
     modifier: Modifier = Modifier,
@@ -81,9 +78,6 @@ fun LiveMapView(
         },
         update = {
             holder.applyHome(homeLat, homeLon)
-            scope.launch {
-                holder.redraw(context, motion, selectedKey, onMarkerClick, scope)
-            }
         },
     )
 
@@ -95,10 +89,14 @@ fun LiveMapView(
         holder.fitUserArea(motion, homeLat, homeLon)
     }
 
-    LaunchedEffect(refreshTick) {
+    LaunchedEffect(syncTick, selectedKey) {
         scope.launch {
-            holder.redraw(context, motion, selectedKey, onMarkerClick, scope)
+            holder.syncMarkers(context, motion, selectedKey, onMarkerClick)
         }
+    }
+
+    LaunchedEffect(positionTick) {
+        holder.updatePositions(motion, selectedKey)
     }
 
     DisposableEffect(Unit) {
@@ -109,19 +107,28 @@ fun LiveMapView(
     }
 }
 
+private data class MarkerVisual(
+    val variant: String,
+    val iconUrl: String,
+    val heading: Int,
+)
+
 private class MapHolder {
     var mapView: MapView? = null
     var map: org.maplibre.android.maps.MapLibreMap? = null
     var styleReady = false
     var cleanup: (() -> Unit)? = null
     var homeApplied = false
-    private val markers = mutableListOf<Marker>()
-    private val polylines = mutableListOf<Polyline>()
+    private val markerByKey = linkedMapOf<String, Marker>()
+    private val visualByKey = mutableMapOf<String, MarkerVisual>()
+    private var clickHandler: ((MotionPlane) -> Unit)? = null
 
     fun destroy() {
         mapView?.onDestroy()
         map = null
         mapView = null
+        markerByKey.clear()
+        visualByKey.clear()
     }
 
     fun applyHome(homeLat: Double?, homeLon: Double?) {
@@ -156,67 +163,91 @@ private class MapHolder {
         m.animateCamera(CameraUpdateFactory.newLatLngBounds(b, FIT_PADDING))
     }
 
-    suspend fun redraw(
+    fun updatePositions(engine: FlightMotionEngine, selectedKey: String?) {
+        val m = map ?: return
+        if (!styleReady) return
+        engine.all().forEach { p ->
+            val marker = markerByKey[p.key] ?: return@forEach
+            marker.position = LatLng(p.displayLat, p.displayLon)
+            if (p.key == selectedKey) m.selectMarker(marker)
+        }
+    }
+
+    suspend fun syncMarkers(
         context: android.content.Context,
         engine: FlightMotionEngine,
         selectedKey: String?,
         onClick: (MotionPlane) -> Unit,
-        scope: CoroutineScope,
     ) {
         val m = map ?: return
         if (!styleReady) return
+        clickHandler = onClick
 
-        markers.forEach { m.removeMarker(it) }
-        markers.clear()
-        polylines.forEach { m.removePolyline(it) }
-        polylines.clear()
+        val liveKeys = engine.all().associateBy { it.key }
+        val remove = markerByKey.keys.filter { it !in liveKeys }
+        remove.forEach { key ->
+            markerByKey.remove(key)?.let { m.removeMarker(it) }
+            visualByKey.remove(key)
+        }
 
         engine.all().forEach { p ->
             val f = p.flight
             val variant = AircraftIconResolver.colourVariant(p.prevAlt, f.altitude)
             val iconUrl = AircraftIconResolver.radarIconUrl(f.modelIcao, f.aircraftType, variant)
-            val bmp = MapIconCache.load(context, iconUrl, 72)
-            val options = MarkerOptions()
-                .position(LatLng(p.displayLat, p.displayLon))
-                .title(f.callsign ?: f.registration ?: "Aircraft")
-            if (bmp != null) {
-                var iconBmp = MapIconCache.withDropShadow(bmp)
-                if (p.headingDeg != 0.0) {
-                    iconBmp = MapIconCache.rotated(iconBmp, p.headingDeg.toFloat())
-                }
-                options.icon(org.maplibre.android.annotations.IconFactory.getInstance(context).fromBitmap(iconBmp))
-            }
-            val marker = m.addMarker(options)
-            if (marker != null) {
-                markers += marker
-                if (p.key == selectedKey) m.selectMarker(marker)
-            }
+            val heading = p.headingDeg.toInt()
+            val needIcon = visualByKey[p.key]?.let {
+                it.variant != variant || it.iconUrl != iconUrl || abs(it.heading - heading) >= 4
+            } ?: true
 
-            val trailDraw = engine.trailForDraw(p)
-            if (trailDraw.size >= 2) {
-                val trailPts = trailDraw.map { LatLng(it.first, it.second) }
-                val trailLine = m.addPolyline(
-                    PolylineOptions()
-                        .addAll(trailPts)
-                        .color("#2a6db5".toColorInt())
-                        .width(3.25f)
-                        .alpha(0.92f),
-                )
-                if (trailLine != null) polylines += trailLine
+            val existing = markerByKey[p.key]
+            if (existing == null) {
+                val options = MarkerOptions()
+                    .position(LatLng(p.displayLat, p.displayLon))
+                    .title(f.callsign ?: f.registration ?: "Aircraft")
+                awaitIcon(context, options, iconUrl, heading)
+                val marker = m.addMarker(options)
+                if (marker != null) {
+                    markerByKey[p.key] = marker
+                    visualByKey[p.key] = MarkerVisual(variant, iconUrl, heading)
+                    if (p.key == selectedKey) m.selectMarker(marker)
+                }
+            } else {
+                existing.position = LatLng(p.displayLat, p.displayLon)
+                existing.title = f.callsign ?: f.registration ?: "Aircraft"
+                if (needIcon) {
+                    val options = MarkerOptions().position(existing.position)
+                    awaitIcon(context, options, iconUrl, heading)
+                    options.icon?.let { existing.icon = it }
+                    visualByKey[p.key] = MarkerVisual(variant, iconUrl, heading)
+                }
+                if (p.key == selectedKey) m.selectMarker(existing)
             }
         }
 
         m.setOnMarkerClickListener { marker ->
             val hit = engine.all().firstOrNull {
-                kotlin.math.abs(it.displayLat - marker.position.latitude) < 0.02 &&
-                    kotlin.math.abs(it.displayLon - marker.position.longitude) < 0.02
+                markerByKey[it.key] === marker
             }
             if (hit != null) {
-                onClick(hit)
+                clickHandler?.invoke(hit)
                 true
             } else {
                 false
             }
         }
+    }
+
+    private suspend fun awaitIcon(
+        context: android.content.Context,
+        options: MarkerOptions,
+        iconUrl: String,
+        heading: Int,
+    ) {
+        val bmp = MapIconCache.load(context, iconUrl, ICON_PX) ?: return
+        var iconBmp = MapIconCache.withDropShadow(bmp)
+        if (heading != 0) {
+            iconBmp = MapIconCache.rotated(iconBmp, heading.toFloat())
+        }
+        options.icon(org.maplibre.android.annotations.IconFactory.getInstance(context).fromBitmap(iconBmp))
     }
 }

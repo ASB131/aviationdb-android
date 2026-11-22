@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -31,6 +32,7 @@ import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.ui.theme.Danger
 
 @Composable
@@ -67,12 +69,14 @@ fun AccountScreen(
         AdbTopBanner(
             title = (profile?.user?.displayName ?: sessionStore.getDisplayName().orEmpty()).ifBlank { "Account" },
             subtitle = profile?.user?.email ?: sessionStore.getUserEmail(),
+            onMenuClick = LocalOpenMenu.current,
         )
 
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when {
@@ -127,6 +131,7 @@ fun AccountScreen(
                             Text("Profile", style = MaterialTheme.typography.titleMedium)
                             HorizontalDivider()
                             AdbDetailRow("Email", p.user.email)
+                            p.user.status?.let { AdbDetailRow("Account status", it) }
                             p.user.memberSince?.let { AdbDetailRow("Member since", it) }
                         }
                     }
@@ -137,6 +142,13 @@ fun AccountScreen(
                             HorizontalDivider()
                             AdbDetailRow("Stripe status", p.billing.stripeStatus ?: "—")
                             p.billing.currentPeriodEnd?.let { AdbDetailRow("Period ends", it) }
+                            if (p.billing.cancelAtPeriodEnd == true) {
+                                Text(
+                                    "Cancels at end of current period",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
                             val invoices = p.billing.recentInvoices.orEmpty().take(5)
                             if (invoices.isEmpty()) {
                                 Text("No invoices on file.", style = MaterialTheme.typography.bodySmall)

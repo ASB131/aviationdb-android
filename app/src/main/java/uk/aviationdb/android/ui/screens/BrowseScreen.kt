@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,11 +29,13 @@ import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.AircraftBrowse
 import uk.aviationdb.android.data.api.AirlineBrowse
 import uk.aviationdb.android.data.api.AirportBrowse
-import uk.aviationdb.android.data.api.CallsignSearchResponse
+import uk.aviationdb.android.data.api.CallsignMaster
 import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbCard
 import uk.aviationdb.android.ui.components.AdbDetailRow
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
+import java.net.URLEncoder
 
 private enum class BrowseMode(val label: String) {
     Aircraft("Aircraft"),
@@ -53,23 +54,24 @@ fun BrowseScreen(
     var mode by remember { mutableStateOf(BrowseMode.Aircraft) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    var aircraft by remember { mutableStateOf<AircraftBrowse?>(null) }
+    var aircraftResults by remember { mutableStateOf<List<AircraftBrowse>>(emptyList()) }
     var airline by remember { mutableStateOf<AirlineBrowse?>(null) }
     var airport by remember { mutableStateOf<AirportBrowse?>(null) }
-    var callsign by remember { mutableStateOf<CallsignSearchResponse?>(null) }
+    var callsignSummary by remember { mutableStateOf<CallsignMaster?>(null) }
     val scope = rememberCoroutineScope()
 
     fun clearResults() {
-        aircraft = null
+        aircraftResults = emptyList()
         airline = null
         airport = null
-        callsign = null
+        callsignSummary = null
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Browse",
-            subtitle = "Aircraft, airlines, airports, and callsigns",
+            subtitle = "Search like the website",
+            onMenuClick = LocalOpenMenu.current,
         )
 
         Column(
@@ -103,7 +105,7 @@ fun BrowseScreen(
                 label = {
                     Text(
                         when (mode) {
-                            BrowseMode.Aircraft -> "Registration or ICAO24"
+                            BrowseMode.Aircraft -> "Registration prefix (e.g. G-TUI)"
                             BrowseMode.Airline -> "ICAO / IATA / name"
                             BrowseMode.Airport -> "ICAO or name"
                             BrowseMode.Callsign -> "Callsign"
@@ -124,7 +126,8 @@ fun BrowseScreen(
                             val api = ApiProvider.service()
                             when (mode) {
                                 BrowseMode.Aircraft -> {
-                                    aircraft = api.aircraftShort(query.trim()).aircraft
+                                    aircraftResults = api.aircraftSearch(query.trim()).results.orEmpty()
+                                    if (aircraftResults.isEmpty()) error = "No matching registrations."
                                 }
                                 BrowseMode.Airline -> {
                                     airline = api.airlineShort(query.trim()).airline
@@ -133,7 +136,7 @@ fun BrowseScreen(
                                     airport = api.airportLookup(query.trim()).airport
                                 }
                                 BrowseMode.Callsign -> {
-                                    callsign = api.callsignLookup(query.trim())
+                                    callsignSummary = api.callsignLookup(query.trim()).master
                                 }
                             }
                         } catch (e: HttpException) {
@@ -155,77 +158,59 @@ fun BrowseScreen(
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
 
-            aircraft?.let { a ->
-                AdbCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(a.registration ?: "Aircraft", style = MaterialTheme.typography.titleLarge)
-                        listOfNotNull(a.aircraftModel, a.operator).joinToString(" · ").takeIf { it.isNotBlank() }?.let {
-                            Text(it, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        AdbDetailRow("Type", a.aircraftType ?: a.icaoType ?: "—")
-                        AdbDetailRow("ICAO24", a.icao24 ?: "—")
-                        AdbDetailRow("Operator", a.operator ?: "—")
-                        AdbDetailRow("Airline code", a.airlineCode ?: "—")
+            aircraftResults.forEach { a ->
+                val reg = a.registration ?: return@forEach
+                AdbCard(onClick = { navController.navigate("aircraft/$reg") }) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(reg, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            listOfNotNull(a.aircraftModel, a.operator).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
-                }
-                a.registration?.let { reg ->
-                    OutlinedButton(
-                        onClick = { navController.navigate("aircraft/$reg") },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open aircraft page") }
                 }
             }
 
             airline?.let { al ->
-                AdbCard {
+                val code = al.icao ?: query
+                AdbCard(onClick = {
+                    navController.navigate("airline/${URLEncoder.encode(code, Charsets.UTF_8.name())}")
+                }) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(al.name ?: al.icao ?: "Airline", style = MaterialTheme.typography.titleLarge)
-                        AdbDetailRow("ICAO", al.icao ?: "—")
-                        AdbDetailRow("IATA", al.iata ?: "—")
+                        Text(al.name ?: code, style = MaterialTheme.typography.titleLarge)
+                        Text("Tap for full airline profile", style = MaterialTheme.typography.bodySmall)
+                        AdbDetailRow("ICAO / IATA", "${al.icao ?: "—"} / ${al.iata ?: "—"}")
                         AdbDetailRow("Country", al.country ?: "—")
-                        AdbDetailRow("Region", al.region ?: "—")
-                        AdbDetailRow("Status", al.status ?: "—")
                     }
                 }
             }
 
             airport?.let { ap ->
-                AdbCard {
+                val ident = ap.ident ?: query
+                AdbCard(onClick = {
+                    navController.navigate("airport/${URLEncoder.encode(ident, Charsets.UTF_8.name())}")
+                }) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(ap.name ?: ap.ident ?: "Airport", style = MaterialTheme.typography.titleLarge)
-                        AdbDetailRow("ICAO", ap.ident ?: "—")
+                        Text(ap.name ?: ident, style = MaterialTheme.typography.titleLarge)
+                        Text("Tap for runways and full details", style = MaterialTheme.typography.bodySmall)
+                        AdbDetailRow("ICAO", ident)
                         AdbDetailRow("IATA", ap.iata ?: "—")
-                        AdbDetailRow("Country", ap.isoCountry ?: "—")
-                        AdbDetailRow("Municipality", ap.municipality ?: "—")
-                        AdbDetailRow("FIR", ap.FIR ?: "—")
-                        AdbDetailRow("Elevation", ap.elevationFt?.let { "$it ft" } ?: "—")
-                        AdbDetailRow("Coordinates", ap.coordinates ?: "—")
                     }
                 }
             }
 
-            callsign?.let { cs ->
-                val m = cs.master
-                AdbCard {
+            callsignSummary?.let { m ->
+                val cs = m.callsign ?: query
+                AdbCard(onClick = {
+                    navController.navigate("callsign/${URLEncoder.encode(cs, Charsets.UTF_8.name())}")
+                }) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(m?.callsign ?: query, style = MaterialTheme.typography.titleLarge)
-                        val route = listOfNotNull(m?.routeFrom, m?.routeTo).joinToString(" → ")
-                        if (route.isNotBlank()) {
-                            Text(route, style = MaterialTheme.typography.bodyLarge)
-                        }
-                        AdbDetailRow("Operator", m?.operator ?: "—")
-                        AdbDetailRow("Your sightings", (m?.callsignsTotal ?: 0).toString())
-                        AdbDetailRow("Last seen", m?.lastSeenTime ?: "—")
-                    }
-                }
-                cs.flights.orEmpty().take(6).forEach { row ->
-                    AdbCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(row.registration ?: "Aircraft", style = MaterialTheme.typography.titleMedium)
-                            val r = listOfNotNull(row.routeFrom, row.routeTo).joinToString(" → ")
-                            if (r.isNotBlank()) Text(r, style = MaterialTheme.typography.bodyMedium)
-                            row.operator?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        }
+                        Text(cs, style = MaterialTheme.typography.titleLarge)
+                        Text("Tap to view your sighting history", style = MaterialTheme.typography.bodySmall)
+                        val route = listOfNotNull(m.routeFrom, m.routeTo).joinToString(" → ")
+                        if (route.isNotBlank()) Text(route, style = MaterialTheme.typography.bodyMedium)
+                        AdbDetailRow("Operator", m.operator ?: "—")
+                        AdbDetailRow("Your sightings", (m.callsignsTotal ?: 0).toString())
                     }
                 }
             }

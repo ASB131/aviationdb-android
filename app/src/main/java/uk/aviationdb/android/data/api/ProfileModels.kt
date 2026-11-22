@@ -13,6 +13,7 @@ data class ProfileResponse(
 @JsonClass(generateAdapter = true)
 data class ProfileUser(
     val email: String,
+    val status: String? = null,
     @Json(name = "display_name") val displayName: String?,
     @Json(name = "track_lat") val trackLat: Double?,
     @Json(name = "track_lon") val trackLon: Double?,
@@ -31,6 +32,7 @@ data class ProfilePlan(
 @JsonClass(generateAdapter = true)
 data class ProfileBilling(
     @Json(name = "stripe_status") val stripeStatus: String?,
+    @Json(name = "stripe_cancel_at_period_end") val cancelAtPeriodEnd: Boolean? = null,
     @Json(name = "current_period_end") val currentPeriodEnd: String?,
     @Json(name = "recent_invoices") val recentInvoices: List<ProfileInvoice>?,
 )

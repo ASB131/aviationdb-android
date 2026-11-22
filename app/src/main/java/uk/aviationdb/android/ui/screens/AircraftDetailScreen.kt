@@ -54,6 +54,7 @@ fun AircraftDetailScreen(registration: String, onBack: () -> Unit) {
         AdbTopBanner(
             title = registration.uppercase(),
             subtitle = "Aircraft profile",
+            onBackClick = onBack,
         )
 
         when {

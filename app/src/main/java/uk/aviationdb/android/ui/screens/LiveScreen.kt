@@ -42,6 +42,7 @@ import uk.aviationdb.android.tracking.FlightMotionEngine
 import uk.aviationdb.android.tracking.MediaUrls
 import uk.aviationdb.android.tracking.MotionPlane
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.ui.components.FlightRowCard
 import uk.aviationdb.android.ui.live.LiveMapView
 import uk.aviationdb.android.ui.util.LoadState
@@ -61,7 +62,8 @@ fun LiveScreen(
     var selectedKey by remember { mutableStateOf<String?>(null) }
     var homeLat by remember { mutableStateOf(sessionStore.getTrackLat()) }
     var homeLon by remember { mutableStateOf(sessionStore.getTrackLon()) }
-    var mapTick by remember { mutableLongStateOf(0L) }
+    var positionTick by remember { mutableLongStateOf(0L) }
+    var syncTick by remember { mutableLongStateOf(0L) }
     val motion = remember { FlightMotionEngine() }
     val scope = rememberCoroutineScope()
     val signedIn = sessionStore.isSignedIn()
@@ -70,8 +72,8 @@ fun LiveScreen(
     LaunchedEffect(Unit) {
         while (isActive) {
             motion.step()
-            mapTick = System.currentTimeMillis()
-            delay(50L)
+            positionTick = System.currentTimeMillis()
+            delay(80L)
         }
     }
 
@@ -100,6 +102,7 @@ fun LiveScreen(
                     )
                 }
                 motion.sync(body.flights)
+                syncTick = System.currentTimeMillis()
                 LoadState.Success(motion.all().toList())
             } catch (e: HttpException) {
                 LoadState.Error(
@@ -121,6 +124,7 @@ fun LiveScreen(
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Overhead now",
+            onMenuClick = LocalOpenMenu.current,
             subtitle = when (val st = state) {
                 is LoadState.Success -> "$count aircraft · updates every ${POLL_MS / 1000}s"
                 is LoadState.Loading -> "Updating…"
@@ -157,7 +161,8 @@ fun LiveScreen(
                     homeLat = homeLat,
                     homeLon = homeLon,
                     selectedKey = selectedKey,
-                    refreshTick = mapTick,
+                    syncTick = syncTick,
+                    positionTick = positionTick,
                     scope = scope,
                     onMarkerClick = { p ->
                         selectedKey = p.key

@@ -77,29 +77,7 @@ class FlightMotionEngine(
             val (nLat, nLon) = deadReckon(p.anchorLat, p.anchorLon, p.headingDeg, speedMs * dt)
             p.displayLat = nLat
             p.displayLon = nLon
-            val last = p.trail.lastOrNull()
-            if (last == null) {
-                p.trail.addLast(nLat to nLon)
-            } else {
-                val moved = haversineM(last.first, last.second, nLat, nLon)
-                if (moved >= 12) {
-                    p.trail.addLast(nLat to nLon)
-                    while (p.trail.size > trailMax) p.trail.removeFirst()
-                }
-            }
         }
-    }
-
-    /** Trail vertices for map draw: anchored history ending at interpolated display position. */
-    fun trailForDraw(p: MotionPlane): List<Pair<Double, Double>> {
-        if (p.trail.isEmpty()) return emptyList()
-        val pts = p.trail.toMutableList()
-        pts[pts.lastIndex] = p.displayLat to p.displayLon
-        if (pts.size == 1) {
-            val stub = deadReckon(p.displayLat, p.displayLon, p.headingDeg + 180.0, 4.0)
-            return listOf(stub, p.displayLat to p.displayLon)
-        }
-        return pts
     }
 
     fun all(): Collection<MotionPlane> = planes.values

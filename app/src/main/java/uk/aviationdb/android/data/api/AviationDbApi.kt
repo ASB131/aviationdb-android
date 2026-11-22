@@ -39,6 +39,12 @@ interface AviationDbApi {
     suspend fun summary(): SummaryResponse
 
     @GET("aircraft")
+    suspend fun aircraftSearch(
+        @Query("aircraft_search") query: String,
+        @Query("limit") limit: Int = 25,
+    ): AircraftSearchResponse
+
+    @GET("aircraft")
     suspend fun aircraftShort(
         @Query("aircraft_short") registration: String,
     ): AircraftShortResponse
@@ -52,6 +58,16 @@ interface AviationDbApi {
     suspend fun airlineShort(
         @Query("airline_short") query: String,
     ): AirlineShortResponse
+
+    @GET("airlines")
+    suspend fun airlineFull(
+        @Query("airline_full") query: String,
+    ): Map<String, Any?>
+
+    @GET("airports")
+    suspend fun airportFull(
+        @Query("airport_full") ident: String,
+    ): Map<String, Any?>
 
     @GET("airports")
     suspend fun airportLookup(

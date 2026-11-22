@@ -16,6 +16,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +41,8 @@ fun AdbTopBanner(
     title: String,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
+  onMenuClick: (() -> Unit)? = null,
+    onBackClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     Surface(
@@ -45,9 +52,22 @@ fun AdbTopBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            when {
+                onBackClick != null -> {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                }
+                onMenuClick != null -> {
+                    IconButton(onClick = onMenuClick) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                    }
+                }
+            }
+            Column(modifier = Modifier.weight(1f).padding(start = if (onBackClick != null || onMenuClick != null) 0.dp else 8.dp)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = Color.White)
                 subtitle?.let {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = Color(0xFFC8D0DB))
@@ -75,7 +95,7 @@ fun AdbCard(
             .border(1.dp, Border, shape)
             .then(clickMod),
     ) {
-        Box(modifier = Modifier.padding(14.dp)) { content() }
+        Column(modifier = Modifier.padding(14.dp)) { content() }
     }
 }
 

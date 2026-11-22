@@ -27,6 +27,7 @@ import uk.aviationdb.android.data.ApiProvider
 import uk.aviationdb.android.data.api.Sighting
 import uk.aviationdb.android.data.credentials.SessionStore
 import uk.aviationdb.android.ui.components.AdbTopBanner
+import uk.aviationdb.android.ui.navigation.LocalOpenMenu
 import uk.aviationdb.android.ui.components.SightingRowCard
 
 private const val PAGE = 50
@@ -97,6 +98,7 @@ fun SightingsScreen(sessionStore: SessionStore) {
     Column(modifier = Modifier.fillMaxSize()) {
         AdbTopBanner(
             title = "Sightings",
+            onMenuClick = LocalOpenMenu.current,
             subtitle = if (items.isNotEmpty()) "${items.size} loaded" else "Your rolling history",
         )
 
